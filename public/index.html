@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script type="text/javascript" src="https://sandbox.web.squarecdn.com/v1/square.js"></script>
+    </head>
+    <body><!-- Provide a target element for the Card form -->
+        <form id="payment-form">
+          <div id="card-container"></div>
+          <button id="card-button" type="button">Pay</button>
+        </form>
+        <!-- Configure the Web Payments SDK and Card payment method -->
+        <script type="text/javascript">
+        //   async function main() {
+        //     const payments = Square.payments("sandbox-sq0idb-n9vkU4ernw8TJuD2IRpU0A", "LZAFXMDYDH3S1");
+        //     const card = await payments.card();
+        //     await card.attach('#card-container');
+        
+        //     async function eventHandler(event) {
+        //       event.preventDefault();
+        
+        //       try {
+        //         const result = await card.tokenize();
+        //         if (result.status === 'OK') {
+        //           console.log(`Payment token is ${result.token}`);
+        //         }
+        //       } catch (e) {
+        //         console.error(e);
+        //       }
+        //     };
+        
+        //     const cardButton = document.getElementById('card-button');
+        //     cardButton.addEventListener('click', eventHandler);
+        //   }
+        
+        //   main();
+            const appId = "sandbox-sq0idb-n9vkU4ernw8TJuD2IRpU0A";
+            const locationId = "LZAFXMDYDH3S1"; 
+
+
+            async function initializeCard(payments) {
+                const card = await payments.card();
+                await card.attach('#card-container'); 
+                return card; 
+            }
+            // Call this function to send a payment token, buyer name, and other details
+            // to the project server code so that a payment can be created with 
+            // Payments API
+            async function createPayment(token) {
+                const body = {
+                    locationId: locationId,
+                    sourceId: token,
+                };
+                console.log(" TOKEN ==> " + token);
+                console.log(" BODY ==> " + body);
+                const paymentResponse = await fetch("https://us-central1-impowered-funnel.cloudfunctions.net/funnel/payments/square", {
+                    method: 'POST',
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(body),
+                });
+                console.log(" RESPONSE => ");
+                console.log(paymentResponse)
+                if (paymentResponse.ok) {
+                    return paymentResponse.json();
+                }
+                const errorBody = await paymentResponse.text();
+                throw new Error(errorBody);
+            }
+
+            // This function tokenizes a payment method. 
+            // The ‘error’ thrown from this async function denotes a failed tokenization,
+            // which is due to buyer error (such as an expired card). It is up to the
+            // developer to handle the error and provide the buyer the chance to fix
+            // their mistakes.
+            async function tokenize(paymentMethod) {
+                const tokenResult = await paymentMethod.tokenize();
+                if (tokenResult.status === 'OK') {
+                    return tokenResult.token;
+                } else {
+                    let errorMessage = `Tokenization failed-status: ${tokenResult.status}`;
+                    if (tokenResult.errors) {
+                    errorMessage += ` and errors: ${JSON.stringify(
+                        tokenResult.errors
+                    )}`;
+                    }
+                    throw new Error(errorMessage);
+                }
+            }
+
+            // Helper method for displaying the Payment Status on the screen.
+            // status is either SUCCESS or FAILURE;
+            function displayPaymentResults(status) {
+                const statusContainer = document.getElementById(
+                    'payment-status-container'
+                );
+                if (status === 'SUCCESS') {
+                    statusContainer.classList.remove('is-failure');
+                    statusContainer.classList.add('is-success');
+                } else {
+                    statusContainer.classList.remove('is-success');
+                    statusContainer.classList.add('is-failure');
+                }
+
+                statusContainer.style.visibility = 'visible';
+            }    
+
+
+            document.addEventListener('DOMContentLoaded', async function () {
+                if (!window.Square) {
+                    throw new Error('Square.js failed to load properly');
+                }
+
+                const payments = window.Square.payments(appId, locationId);
+                let card;
+                try {
+                    card = await initializeCard(payments);
+                } catch (e) {
+                    console.error('Initializing Card failed', e);
+                    return;
+                }
+
+                // Checkpoint 2.
+                async function handlePaymentMethodSubmission(event, paymentMethod) {
+                    event.preventDefault();
+
+                    try {
+                    // disable the submit button as we await tokenization and make a
+                    // payment request.
+                    cardButton.disabled = true;
+                    const token = await tokenize(paymentMethod);
+                    const paymentResults = await createPayment(token);
+                    displayPaymentResults('SUCCESS');
+
+                    console.debug('Payment Success', paymentResults);
+                    } catch (e) {
+                    cardButton.disabled = false;
+                    displayPaymentResults('FAILURE');
+                    console.error(e.message);
+                    }
+                }
+
+                const cardButton = document.getElementById(
+                    'card-button'
+                );
+                cardButton.addEventListener('click', async function (event) {
+                    await handlePaymentMethodSubmission(event, card);
+                });
+                });
+
+
+        </script>
+        
+    </body>
+      
+</html>
