@@ -1,5 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import * as crypto from "crypto";
 import { createDocumentWthId, updateFunnelsDocument } from "../lib/helpers/firestore";
 
 export const dailyCronJob = functions
@@ -20,12 +21,37 @@ export const dailyCronJob = functions
       total_orders: 0,
       total_aov: 0,
       total_revenue: 0,
-      top_sellers: [],
       total_sessions: 0,
       total_carts: 0,
       total_checkouts: 0,
       updated_at: admin.firestore.Timestamp.now(),
-      created_at: admin.firestore.Timestamp.now()
+      created_at: admin.firestore.Timestamp.now(),
+      prev_daily_sessions: 0,
+      total_daily_sessions: 0,
+      daily_sessions_rate: 0,
+      prev_daily_new_sessions: 0,
+      total_daily_new_sessions: 0,
+      daily_new_sessions_rate: 0,
+      prev_daily_sales: 0,
+      total_daily_sales: 0,
+      daily_sales_rate: 0,
+      prev_daily_carts: 0,
+      total_daily_carts: 0,
+      daily_carts_rate: 0,
+      prev_daily_checkouts: 0,
+      prev_daily_aov: 0,
+      total_daily_checkouts: 0,
+      total_daily_orders: 0,
+      total_funnel_sales: 0,
+      total_funnel_orders: 0,
+      total_online_sales: 0,
+      total_online_orders: 0,
+      daily_aov: 0,
+      daily_order_rate: 0,
+      daily_cart_rate: 0,
+      daily_checkout_rate: 0,
+      top_sellers: [],
+      id: "dai_" + crypto.randomBytes(10),
     }
 
     // creat new analytics doc

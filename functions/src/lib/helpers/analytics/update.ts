@@ -1,4 +1,4 @@
-import { Daily, DailyFunnel, TopSellers } from "../../types/analytics";
+import { Analytics, DailyFunnel, TopSellers } from "../../types/analytics";
 import { LineItem } from "../../types/draft_rders";
 
 import * as admin from "firebase-admin";
@@ -29,13 +29,13 @@ export const updateAnalyticsOnOrderSuccess = async (
         functions.logger.info("STORE UPDATE!");
         functions.logger.info(store_data);
         const {
-            total_orders,
-            total_revenue,
+            total_daily_orders,
+            total_daily_sales,
             top_sellers,
-            total_checkouts
-        } = store_data as Daily;
+            total_daily_checkouts
+        } = store_data as Analytics;
 
-        const new_aov = (total_revenue + current_total_price) / (total_orders + 1);
+        const new_aov = ((total_daily_sales ? total_daily_sales : 0) + current_total_price) / ((total_daily_orders ? total_daily_orders : 0) + 1);
 
 
         let list: TopSellers[] = [];
@@ -52,7 +52,7 @@ export const updateAnalyticsOnOrderSuccess = async (
                             ...list,
                             {
                                 title: item.title,
-                                count: item.count + 1,
+                                total_orders: item.total_orders + 1,
                             } 
                         ];
                     };
@@ -62,7 +62,7 @@ export const updateAnalyticsOnOrderSuccess = async (
                     ...list,
                     {
                         title: li.title,
-                        count: 1,
+                        total_orders: 1,
                     } 
                 ];
             }
@@ -74,11 +74,11 @@ export const updateAnalyticsOnOrderSuccess = async (
 
         await updateDocument(MERCHANT_UUID, "analytics", TODAY, {
             ...store_data,
-            total_orders: total_orders + 1,
-            total_aov: new_aov,
-            total_revenue: total_revenue + current_total_price as number,
+            total_daily_orders: total_daily_orders + 1,
+            daily_aov: new_aov,
+            total_daily_sales: total_daily_sales + current_total_price as number,
             top_sellers: list,
-            total_checkouts: total_checkouts + 1,
+            total_daily_checkouts: total_daily_checkouts + 1,
             updated_at: admin.firestore.Timestamp.now()
         });
 

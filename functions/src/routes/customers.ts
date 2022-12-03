@@ -3,7 +3,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { createCustomer } from "../lib/helpers/customers/create";
 import { createDocument, getFunnelDocument, updateDocument, updateFunnelsDocument } from "../lib/helpers/firestore";
-import { Analytics } from "../lib/types/analytics";
+import { DailyFunnel } from "../lib/types/analytics";
 import { getToday } from "../lib/helpers/date";
 // import * as crypto from "crypto";
 
@@ -79,7 +79,7 @@ export const customerRoute = (
 
                 const result = await getFunnelDocument(MERCHAND_UUID, "analytics", String(FUNNEL_UUID))
 
-                const analytics: Analytics = result.data as Analytics;
+                const analytics: DailyFunnel = result.data as DailyFunnel;
 
 
                 const opv = analytics.order_page_views > 0 ? analytics.order_page_views : 1;
@@ -153,7 +153,7 @@ export const customerRoute = (
 
             const result = await getFunnelDocument(MERCHAND_UUID, "analytics", String(TODAY))
 
-            const analytics: Analytics = result.data as Analytics;
+            const analytics: DailyFunnel = result.data as DailyFunnel;
 
             const update = {
                 ...result.data,

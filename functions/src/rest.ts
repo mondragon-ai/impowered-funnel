@@ -8,6 +8,7 @@ import { paymentsRoutes } from "./routes/payments";
 import { analyticRoutes } from "./routes/analytics";
 import { productRoutes } from "./routes/products";
 import { authRoutes } from "./routes/auth";
+import { dbManagerRoutes } from "./routes/db";
 
 
 export const rest = (db: FirebaseFirestore.Firestore) => {
@@ -37,6 +38,9 @@ export const rest = (db: FirebaseFirestore.Firestore) => {
 
     // Auth Routes for session
     authRoutes(app);
+
+    // DB Management Routes
+    dbManagerRoutes(app)
 
     return app
 }

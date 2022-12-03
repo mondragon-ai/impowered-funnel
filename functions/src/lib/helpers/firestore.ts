@@ -1,6 +1,34 @@
 import {db} from "../../firebase";
 import * as crypto from "crypto";
-// import * as functions from "firebase-functions";
+// import { Product } from "../types/products";
+// import { AppSession } from "../types/Sessions";
+import * as functions from "firebase-functions";
+
+export const updateSessions = async (
+    api_key: string,
+    data: any,
+) => {
+    // Data for validation in parent
+    let text = "SUCCESS: Document Created 👍🏻", status = 200, updated = true;
+
+    try {
+        await db
+        .collection("sessions")
+        .doc(api_key)
+        .set(data, { merge: true });
+    } catch {
+        text = " - Could not update document.";
+        status = 400;
+        updated = false;
+    }
+
+    // return either result 
+    return {
+        text: text,
+        status: status,
+        data: updated
+    }
+}
 
 /**
  * Create app sesion in primary DB 
@@ -11,8 +39,6 @@ import * as crypto from "crypto";
  */
 export const createAppSessions = async (
     api_key: string,
-    merchant_uuid: string,
-    collection: string,
     data: any,
 ) => {
     // Data for validation in parent
@@ -25,9 +51,7 @@ export const createAppSessions = async (
 
     try {
         response = await db
-        .collection("merchants")
-        .doc(merchant_uuid)
-        .collection(collection)
+        .collection("sessions")
         .doc(doc_uuid)
         .set({
             ...data,
@@ -46,6 +70,35 @@ export const createAppSessions = async (
             id: doc_uuid,
             customer: response ? response : null
         }
+    }
+}
+
+export const getSessionAccount = async (
+    api_key: string,
+) => {
+    // Data for validation in parent
+    let text = " - account resource fetched 👍🏻", status = 200, result: any = null;
+
+
+    let response: FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>  = await db
+    .collection("sessions")
+    .doc(api_key)
+    .get();
+
+    if (response.exists) {
+        functions.logger.debug(" ===> Get Session Document");
+        functions.logger.debug(response);
+        result = response.data();
+    } else {
+        text = " - getting session document.";
+        status = 400;
+    }
+
+    // return either result 
+    return {
+        text: text,
+        status: status,
+        data: result
     }
 }
 
@@ -92,6 +145,54 @@ export const createDocument = async (
         data: {
             id: doc_uuid,
             customer: response ? response : null
+        }
+    }
+}
+
+export const getCollections = async (
+    merchant_uuid: string,
+    collection: string,
+) => {
+
+    // Data for validation in parent
+    let text = "SUCCESS: Document Created 👍🏻", status = 200;
+
+
+    let response = {} as FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> ; 
+    let colleciton: {}[] = []; 
+    let size = 0; 
+    
+
+    try {
+        response = await db
+        .collection("merchants")
+        .doc(merchant_uuid)
+        .collection(collection)
+        .limit(25)
+        .get()
+
+    } catch {
+        text = " - Could not fetch collection. check collection | uuid.";
+        status = 400;
+    }
+
+    if (response.size > 0) {
+        size = response.size;
+        response.forEach(item => {
+            colleciton = [
+                ...colleciton,
+                item.data()
+            ]
+        })
+    }
+
+    // return either result 
+    return {
+        text: text,
+        status: status,
+        data: {
+            size: size,
+            collection: colleciton ? colleciton : null
         }
     }
 }

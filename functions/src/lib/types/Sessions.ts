@@ -8,4 +8,5 @@ export type AppSession = {
     updated_at: FirebaseFirestore.Timestamp;
     created_at: FirebaseFirestore.Timestamp;
     roles: ["ALL" | "STOREFRONT"];
+    usage: { time: number, count: number}
 }

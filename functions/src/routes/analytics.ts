@@ -1,34 +1,70 @@
 import * as express from 'express';
 import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
 import { getToday } from '../lib/helpers/date';
-import { getFunnelDocument, updateFunnelsDocument } from '../lib/helpers/firestore';
-import { DailyFunnel } from '../lib/types/analytics';
+import { getDocument, getFunnelDocument, updateFunnelsDocument } from '../lib/helpers/firestore';
+import { Analytics, DailyFunnel } from '../lib/types/analytics';
+import { Product } from '../lib/types/products';
+import { validateKey } from './auth';
 
 export const analyticRoutes = (app: express.Router) => {
-    app.get("/analytics/funnels", async (req: express.Request, res: express.Response) => {
-        let status = 500, text = "ERROR: Likley internal problem 😿 ";
+    app.get("/analytics/funnels", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(' ====> SESSIONS CREATE');
+        let text = "ERROR: Likely fetching funnel alaytics 😿", status= 500, result: Analytics | any = null;
 
-        let MERCHANT_UUID = "50rAgweT9PoQKs5u5o7t";
+        // Merchant uuid from headers
+        const merchant_uuid = req.body.merchant_uuid;
 
-        let TODAY: Date | string = new Date();  
-        TODAY = TODAY.toString().substring(0,15);
+        let TODAY = getToday()
 
-        const FUNNEL_UUID = Math.floor(new Date(TODAY).getTime() / 1000);
-
-        let result: undefined | FirebaseFirestore.DocumentData | null = null;
-
-        console.log(String(FUNNEL_UUID));
+        console.log(String(TODAY));
 
         try {
 
             console.log("TRY");
-            const response = await getFunnelDocument(MERCHANT_UUID, "analytics", String(FUNNEL_UUID));
+            const response = await getFunnelDocument(merchant_uuid, "analytics", String(TODAY));
 
             console.log(response);
             if (response.status < 300 && response.data != undefined) {
                 result = response.data;
                 status = 200;
                 text = "SUCCESS: Created Successfullly"
+            }
+            
+        } catch (e) {
+            text = text + " - Fetching doc"
+        }
+
+
+        res.status(status).json({
+            text: text,
+            data: result
+        })
+    });
+
+    app.get("/analytics/daily", validateKey,  async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(' ====> SESSIONS CREATE');
+        let text = "ERROR: Likely product fetching prolem 🔍", status= 500, result: Product[] | any = null;
+
+        // Merchant uuid from headers
+        const merchant_uuid = req.body.merchant_uuid;
+
+        
+        const TODAY = await getToday();
+
+        console.log(String(TODAY));
+        console.log(String(merchant_uuid));
+
+        try {
+
+            console.log("TRY");
+            const response = await getDocument(merchant_uuid, "analytics", String(TODAY));
+
+            console.log(response);
+            if (response.status < 300 && response.data != undefined) {
+                result = response.data;
+                status = 200;
+                text = "SUCCESS: Data Fetched Successfully 🔍" 
             }
             
         } catch (e) {

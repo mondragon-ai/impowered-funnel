@@ -4,7 +4,7 @@ import * as admin from "firebase-admin";
 import { getDocument, getFunnelDocument, simlpeSearch, updateFunnelsDocument } from "../lib/helpers/firestore";
 import { Customer } from "../lib/types/customers";
 import { handleStripeCharge, updateStripeCustomer } from "../lib/helpers/stripe";
-import { Analytics } from "../lib/types/analytics";
+import { DailyFunnel } from "../lib/types/analytics";
 import { getToday } from "../lib/helpers/date";
 import { DraftOrder } from "../lib/types/draft_rders";
 
@@ -75,7 +75,7 @@ export const checkoutRoutes = (app: express.Router) => {
 
             const result = await getFunnelDocument(MERCHAND_UUID, "analytics", String(TODAY))
 
-            const analytics: Analytics = result.data as Analytics;
+            const analytics: DailyFunnel = result.data as DailyFunnel;
 
             const uopv = analytics.order_page_views ? analytics.order_page_views : 1;
 
