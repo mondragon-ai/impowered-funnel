@@ -159,7 +159,7 @@ export const getCollections = async (
 
 
     let response = {} as FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> ; 
-    let colleciton: {}[] = []; 
+    let colleciton: any[] = []; 
     let size = 0; 
     
 

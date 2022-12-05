@@ -9,6 +9,7 @@ import { analyticRoutes } from "./routes/analytics";
 import { productRoutes } from "./routes/products";
 import { authRoutes } from "./routes/auth";
 import { dbManagerRoutes } from "./routes/db";
+import { orderRoutes } from "./routes/orders";
 
 
 export const rest = (db: FirebaseFirestore.Firestore) => {
@@ -32,6 +33,7 @@ export const rest = (db: FirebaseFirestore.Firestore) => {
     analyticRoutes(app);
 
     // Order Routes 
+    orderRoutes(app);
 
     // Product Routes 
     productRoutes(app);

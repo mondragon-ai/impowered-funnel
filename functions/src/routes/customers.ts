@@ -2,9 +2,11 @@ import * as express from "express";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { createCustomer } from "../lib/helpers/customers/create";
-import { createDocument, getFunnelDocument, updateDocument, updateFunnelsDocument } from "../lib/helpers/firestore";
+import { createDocument, getCollections, getDocument, getFunnelDocument, updateDocument, updateFunnelsDocument } from "../lib/helpers/firestore";
 import { DailyFunnel } from "../lib/types/analytics";
 import { getToday } from "../lib/helpers/date";
+import { validateKey } from "./auth";
+import { Customer } from "../lib/types/customers";
 // import * as crypto from "crypto";
 
 export const customerRoute = (
@@ -35,7 +37,7 @@ export const customerRoute = (
     /**
      * Create customer & stripe account, then return client secret
      */
-     app.post("/customers/create", async (req: express.Request, res: express.Response) => {
+     app.post("/customers/create/quick", async (req: express.Request, res: express.Response) => {
         let status = 500, text = "";
 
         // Merchant ID
@@ -109,6 +111,94 @@ export const customerRoute = (
             text: text,
             data: data,
         });
+    });
+
+    app.post("/customers/create", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ====> Customer Created Route Started");
+        let status = 200,
+            text = "SUCCESS: Customer succesffully created",
+            result: string = "",
+            ok = true;
+
+        // if valid
+        const merchant_uuid = req.body.merchant_uuid;
+
+        // Customer Data
+        const customer: Customer = req.body.customer;
+
+        // TODO: Sanatize scopes && data
+
+        try {
+
+            const response = await createDocument(merchant_uuid, "customers", "cus_", customer);
+
+            if (response.status < 300 && response.data) {
+                result = response.data.id;
+            }
+            
+        } catch (e) {
+            text = "ERROR: Likely a problem creating a customer";
+            status = 500;
+            ok = false;
+            functions.logger.error(text);
+            throw new Error(text);
+        }
+
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: result
+        })
+    });
+
+    app.post("/customers", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ====> Customer Created Route Started");
+        let status = 200,
+            text = "SUCCESS: Customer(s) sucessfully fetched",
+            result: Customer[] = [],
+            size = 0,
+            ok = true;
+
+        // if valid
+        const merchant_uuid = req.body.merchant_uuid;
+
+        // Customer Data
+        const cus_uuid: string = req.body.cus_uuid;
+
+        // TODO: Sanatize scopes && data
+
+        try {
+
+            if (cus_uuid === "") {
+                const response = await getCollections(merchant_uuid, "customers");
+                if (response?.data?.collection && response.status < 300) {
+                    result = response?.data?.collection;
+                    size = response?.data?.size ? response?.data?.size : 1;
+                }
+            } else {
+                const response = await getDocument(merchant_uuid, "customers", cus_uuid);
+                if (response?.data && response.status < 300) {
+                    result = [response?.data as Customer];
+                    size = response?.data?.size ? response?.data?.size : 1;
+                }
+            }
+
+        } catch (e) {
+            text = "ERROR: Likely a problem fetching a customer";
+            status = 500;
+            ok = false;
+            functions.logger.error(text);
+            throw new Error(text);
+        }
+
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: {
+                size: size,
+                customers: result
+            }
+        })
     });
 
     /**
