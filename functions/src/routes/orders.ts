@@ -94,5 +94,59 @@ export const orderRoutes = (app: express.Router) => {
             }
         })
     });
+
+
+    app.post("/draft_orders", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ====> Customer Created Route Started ");
+        let status = 200,
+            text = "SUCCESS: Order(s) sucessfully fetched ✅",
+            result: Order[] = [],
+            size = 0,
+            ok = true;
+
+        // if valid
+        const merchant_uuid = req.body.merchant_uuid;
+
+        // Customer Data
+        const dra_uuid: string = req.body.dra_uuid;
+
+        // TODO: Sanatize scopes && data
+
+        try {
+
+            if (dra_uuid === "") {
+                const response = await getCollections(merchant_uuid, "draft_orders");
+                if (response?.data?.collection && response.status < 300) {
+                    result = response?.data?.collection;
+                    size = response?.data?.size ? response?.data?.size : 1;
+                }
+            } else {
+                const response = await getDocument(merchant_uuid, "draft_orders", dra_uuid);
+                if (response?.data && response.status < 300) {
+                    result = [response?.data as Order];
+                    size = response?.data?.size ? response?.data?.size : 1;
+                }
+            }
+
+        } catch (e) {
+            text = "ERROR: Likely a problem fetching a order";
+            status = 500;
+            ok = false;
+            functions.logger.error(text);
+            throw new Error(text);
+        }
+
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: {
+                size: size,
+                orders: result
+            }
+        })
+    });
+
+    
+
     
 }

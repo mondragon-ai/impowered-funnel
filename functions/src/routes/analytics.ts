@@ -9,13 +9,13 @@ import { validateKey } from './auth';
 
 export const analyticRoutes = (app: express.Router) => {
     app.get("/analytics/funnels", validateKey, async (req: express.Request, res: express.Response) => {
-        functions.logger.debug(' ====> SESSIONS CREATE');
+        functions.logger.debug(' ====> FETCHING FUNEL ANALYTICS');
         let text = "ERROR: Likely fetching funnel alaytics 😿", status= 500, result: Analytics | any = null;
 
         // Merchant uuid from headers
         const merchant_uuid = req.body.merchant_uuid;
 
-        let TODAY = getToday()
+        let TODAY = await getToday();
 
         console.log(String(TODAY));
 
@@ -43,7 +43,7 @@ export const analyticRoutes = (app: express.Router) => {
     });
 
     app.get("/analytics/daily", validateKey,  async (req: express.Request, res: express.Response) => {
-        functions.logger.debug(' ====> SESSIONS CREATE');
+        functions.logger.debug(' ====> FETCHING STORE ANALYTICS');
         let text = "ERROR: Likely product fetching prolem 🔍", status= 500, result: Product[] | any = null;
 
         // Merchant uuid from headers

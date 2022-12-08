@@ -10,6 +10,9 @@ import { productRoutes } from "./routes/products";
 import { authRoutes } from "./routes/auth";
 import { dbManagerRoutes } from "./routes/db";
 import { orderRoutes } from "./routes/orders";
+import { funnelRoutes } from "./routes/funnels";
+import { collectionRoutes } from "./routes/colletions";
+import { bundleRoutes } from "./routes/bundles";
 
 
 export const rest = (db: FirebaseFirestore.Firestore) => {
@@ -43,6 +46,16 @@ export const rest = (db: FirebaseFirestore.Firestore) => {
 
     // DB Management Routes
     dbManagerRoutes(app)
+
+    // Colleciton Routes 
+    collectionRoutes(app)
+
+    // Bundle Routes 
+    bundleRoutes(app)
+
+    //Funnel Routes
+    funnelRoutes(app)
+    
 
     return app
 }

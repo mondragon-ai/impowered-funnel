@@ -4,7 +4,7 @@ import * as functions from "firebase-functions";
 // import * as admin from "firebase-admin";
 import { Address } from "../types/addresses";
 // import { DailyFunnel } from "../types/analytics";
-import { DraftOrder, LineItem } from "../types/draft_rders";
+import { DraftOrder, LineItem, Order } from "../types/draft_rders";
 // import { getToday } from "./date";
 import { createFunnelDraftOrder } from "./draft_orders/funnel_create";
 import { updateDocument } from "./firestore";
@@ -250,11 +250,15 @@ import { shopifyRequest } from "./shopify";
 
 
     let update_order = {
-      line_items: [] as LineItem[]
-    }
+      ...draft_order,
+      line_items: [] as LineItem[],
+      current_total_price: draft_order?.current_total_price + 4000,
+      current_subtotal_price: draft_order?.current_subtotal_price ? draft_order?.current_subtotal_price + 4000 : 0,
+    } as Order
 
     if (draft_order != undefined) {
       update_order = {
+        ...update_order,
         line_items: [
           ...draft_order?.line_items,
           {
@@ -276,6 +280,7 @@ import { shopifyRequest } from "./shopify";
       }
     } else {
       update_order = {
+        ...update_order,
         line_items: [
           {
             variant_id: subscription.id,

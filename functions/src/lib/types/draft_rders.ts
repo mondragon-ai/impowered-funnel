@@ -50,6 +50,7 @@ export interface DraftOrder {
 }
 
 export interface Order {
+    order_name: string,
     high_risk: boolean,
     line_items: LineItem[],
     updated_at: FirebaseFirestore.Timestamp,
@@ -78,5 +79,7 @@ export interface Order {
     fullfillment_status?: "PRINTED" | "SENT" | "TRANSIT" | "HOLD" | "DELIVERED" | "LOST",
     payment_status?: "PAID" | "UNPAID",
     transaction_id: string,
-    store_type?: "SHOPIFY" | "IMPOWERED" | ""
+    store_type?: "SHOPIFY" | "IMPOWERED" | "",
+    first_name: string,
+    last_name: string,
 }

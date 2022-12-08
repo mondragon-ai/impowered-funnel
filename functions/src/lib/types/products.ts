@@ -24,3 +24,40 @@ export type Product = {
     variants: []
 }
 
+export type Collection = {
+    title: string,
+    type_to_compare: string,
+    condition: "===",
+    compare_against: string,
+    notes: string,
+    products: {
+        id: string,
+        title: string,
+        url: string,
+        option1: string,
+        option2: string,
+        option3: string,
+        compare_at_price: number,
+        price: number,
+    }[]
+}
+
+export type Bundle = {
+    title: string,
+    total: number,
+    new_price: number,
+    tags: string[],
+    notes: string,
+    products: {
+        id: string,
+        title: string,
+        url: string,
+        option1: string,
+        option2: string,
+        option3: string,
+        compare_at_price: number,
+        price: number,
+    }[]
+}
+
+

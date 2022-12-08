@@ -4,6 +4,48 @@ import * as crypto from "crypto";
 // import { AppSession } from "../types/Sessions";
 import * as functions from "firebase-functions";
 
+
+
+export const createFunnelAnalytics = async (
+    merchant_uuid: string,
+    doc_uuid: string,
+    today: string,
+    data: any,
+) => {
+    // Data for validation in parent
+    let text = "SUCCESS: Document Created 👍🏻", status = 200;
+
+    let response; 
+
+    try {
+        response = await db
+        .collection("merchants")
+        .doc(merchant_uuid)
+        .collection("funnels")
+        .doc(doc_uuid)
+        .collection("analytics")
+        .doc(today)
+        .set({
+            ...data,
+            id: doc_uuid
+        });
+    } catch {
+        text = " - Could not create document.";
+        status = 400;
+    }
+
+    // return either result 
+    return {
+        text: text,
+        status: status,
+        data: {
+            id: doc_uuid,
+            funnel: response ? response : null
+        }
+    }
+}
+
+
 export const updateSessions = async (
     api_key: string,
     data: any,
