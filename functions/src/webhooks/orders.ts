@@ -3,17 +3,17 @@ import { updateAnalyticsOnOrderSuccess } from "../lib/helpers/analytics/update";
 import { getToday } from "../lib/helpers/date";
 import { getDocument, getFunnelDocument, updateDocument } from "../lib/helpers/firestore";
 import { Customer } from "../lib/types/customers";
-import { DraftOrder } from "../lib/types/draft_rders";
+import { Order } from "../lib/types/draft_rders";
 
 export const orderCreated = functions.firestore
 .document('merchants/{merhcantId}/orders/{orderId}')
-.onCreate(async (snap, context) => {
+.onCreate(async (snap) => {
 
     // ? Dynamic how? 
     const MERCHANT_UUID = "50rAgweT9PoQKs5u5o7t";
 
     // Get & cast document
-    const order = snap.data() as DraftOrder;
+    const order = snap.data() as Order;
 
     // From Order Obj
     // const _seconds = order?.updated_at?.seconds;
@@ -29,7 +29,8 @@ export const orderCreated = functions.firestore
         current_total_price,
         customer_id,
         id,
-        line_items
+        line_items,
+        order_number
     } = order;
 
     // get store analytics document
@@ -77,8 +78,18 @@ export const orderCreated = functions.firestore
         functions.logger.info(orders);
 
         await updateDocument(MERCHANT_UUID, "customers", customer_id as string, {
-            orders: orders
-        });
+            ...customerDoc,
+            orders: orders,
+            total_orders: customerDoc?.total_orders && customerDoc?.total_orders > 0 ? customerDoc?.total_orders + 1 : 1,
+            total_spent: customerDoc?.total_spent && customerDoc?.total_spent > 0 ? customerDoc?.total_spent + current_total_price : current_total_price,
+            last_order: {
+                line_items: line_items,
+                id: id,
+                total_price: current_total_price,
+                order_number: typeof(order_number) == "string" && order_number !== "" ? order_number : "",
+                payment_status: true,
+            }
+        } as Customer);
     }
 
     

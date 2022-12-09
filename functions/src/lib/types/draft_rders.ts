@@ -82,4 +82,5 @@ export interface Order {
     store_type?: "SHOPIFY" | "IMPOWERED" | "",
     first_name: string,
     last_name: string,
+    order_number: string,
 }

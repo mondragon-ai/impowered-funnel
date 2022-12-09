@@ -1,5 +1,6 @@
 import { Address } from "../../types/addresses";
 import { DraftOrder, LineItem } from "../../types/draft_rders";
+import * as crypto from "crypto"
 import * as admin from "firebase-admin"
 import * as functions from "firebase-functions"
 import { createDocument, updateDocument } from "../firestore";
@@ -24,7 +25,7 @@ export const createFunnelDraftOrder = async (
         if (STRIPE_PI != "") {
             try {
     
-                let draft_data: DraftOrder = {
+                let draft_data = {
                     high_risk: true,
                     line_items: [
                         product
@@ -32,6 +33,9 @@ export const createFunnelDraftOrder = async (
                     addresses: [
                         shipping as Address
                     ],
+                    tags: ["CLICK_FUNNEL"],
+                    order_name: "SH-" + crypto.randomBytes(10).toString("hex"),
+                    first_name: shipping?.name as string,
                     updated_at: admin.firestore.Timestamp.now(),
                     created_at: admin.firestore.Timestamp.now(),
                     transaction_id: STRIPE_PI,
@@ -41,7 +45,7 @@ export const createFunnelDraftOrder = async (
                     type: "FUNNEL",
                     current_total_price: product.price,
                     store_type: "SHOPIFY"
-                }
+                } as DraftOrder;
     
                 // Create Draft Order
                 const draftOrder = await createDocument(MERCHAND_UUID, "draft_orders", "dra_", draft_data);
