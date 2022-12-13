@@ -1,9 +1,11 @@
 import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
 import { updateAnalyticsOnOrderSuccess } from "../lib/helpers/analytics/update";
 import { getToday } from "../lib/helpers/date";
-import { getDocument, getFunnelDocument, updateDocument } from "../lib/helpers/firestore";
+import { createDocument, getDocument, getFunnelDocument, updateDocument } from "../lib/helpers/firestore";
 import { Customer } from "../lib/types/customers";
 import { Order } from "../lib/types/draft_rders";
+import { SubscriptionAgreement } from "../lib/types/products";
 
 export const orderCreated = functions.firestore
 .document('merchants/{merhcantId}/orders/{orderId}')
@@ -83,7 +85,7 @@ export const orderCreated = functions.firestore
             total_orders: customerDoc?.total_orders && customerDoc?.total_orders > 0 ? customerDoc?.total_orders + 1 : 1,
             total_spent: customerDoc?.total_spent && customerDoc?.total_spent > 0 ? customerDoc?.total_spent + current_total_price : current_total_price,
             last_order: {
-                line_items: line_items,
+                line_items: line_items && line_items.length > 0 ? line_items : [],
                 id: id,
                 total_price: current_total_price,
                 order_number: typeof(order_number) == "string" && order_number !== "" ? order_number : "",
@@ -92,13 +94,71 @@ export const orderCreated = functions.firestore
         } as Customer);
     }
 
-    
-
-    // const funnel_analytics = {
-    //     orders: 
-    // }
-
-    // const result = await updateDocument(MERCHANT_UUID, "funnel_analytics", TODAY, funnel_analytics)
 
 
+    // TODO: check LI for sub
+    // TODO: Create sub ID
+    // TODO: cretea data strcutre && type
+    // TODO: cretea data strcutre && type
+    if (order?.line_items && order?.line_items.length > 0) {
+
+        order?.line_items?.map(async (item) => {
+            if (item?.is_recurring) {
+                await createDocument(MERCHANT_UUID, "subscriptions", "sub_", {
+                    created_at: admin.firestore.Timestamp.now(),
+                    updated_at: admin.firestore.Timestamp.now(),
+                    customer:{
+                        cus_uuid: order?.customer_id,
+                        first_name: order?.customer_id,
+                        last_name: order?.last_name,
+                        email: order?.email,
+                        addresses: order?.addresses,
+                    },
+                    schedule: {
+                        interval: 1,
+                        type: "MONTH",
+                    },
+                    product: {
+                        product_id: item?.product_id,
+                        variant_id: item?.variant_id,
+                        title: item?.title,
+                        options1: item?.option1,
+                        options2:  item?.option2,
+                        options3:  item?.option3,
+                        price:  item?.price,
+                    },
+                    order_number: order?.order_number,
+                    payment_method: "STRIPE" 
+                } as SubscriptionAgreement);
+            } else {
+
+                await createDocument(MERCHANT_UUID, "subscriptions", "sub_", {
+                    created_at: admin.firestore.Timestamp.now(),
+                    updated_at: admin.firestore.Timestamp.now(),
+                    customer:{
+                        cus_uuid: order?.customer_id,
+                        first_name: order?.customer_id,
+                        last_name: order?.last_name,
+                        email: order?.email,
+                        addresses: order?.addresses,
+                    },
+                    schedule: {
+                        interval: 1,
+                        type: "MONTH",
+                    },
+                    product: {
+                        product_id: item?.product_id,
+                        variant_id: item?.variant_id,
+                        title: item?.title,
+                        options1: item?.option1,
+                        options2:  item?.option2,
+                        options3:  item?.option3,
+                        price:  item?.price,
+                    },
+                    order_number: order?.order_number,
+                    payment_method: "STRIPE" 
+                } as SubscriptionAgreement);
+            }
+        })
+    }
 });

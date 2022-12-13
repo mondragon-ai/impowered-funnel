@@ -1,16 +1,15 @@
 import * as express from "express";
 import * as functions from "firebase-functions";
-// import * as admin from "firebase-admin";
-import { createDocument, getCollections, getDocument } from "../lib/helpers/firestore";
-import { Funnel } from "../lib/types/funnels";
-import { Collection } from "../lib/types/products";
+import * as admin from "firebase-admin";
+import { createDocument, getCollections, getDocument, updateDocument } from "../lib/helpers/firestore";
+import { Bundle, Collection } from "../lib/types/products";
 import { validateKey } from "./auth";
 
 export const bundleRoutes = (app: express.Router) => {
     app.post("/bundles/create", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ====> Ready to create bundle");
         let status = 200,
-            text = "SUCCESS: Collection document succesffully created 👽",
+            text = "SUCCESS: Bundle document succesffully created 👽",
             result: string = "",
             ok = true;
 
@@ -18,9 +17,16 @@ export const bundleRoutes = (app: express.Router) => {
         const merchant_uuid:string = req.body.merchant_uuid;
 
         // Data to push
-        const bundle: Funnel = req.body.bundle;
+        let bundle: Bundle = req.body.bundle;
 
         // TODO: SPECIAL SCOPE ACCESS CHECK
+
+        bundle = {
+            ...bundle,
+            updated_at: admin?.firestore?.Timestamp?.now(),
+            created_at: admin?.firestore?.Timestamp?.now(),
+        } 
+
 
         // Create collection document 
         try {
@@ -47,6 +53,56 @@ export const bundleRoutes = (app: express.Router) => {
                 bun_uuid: result
             }
         })
+    });
+
+
+    app.post("/bundles/update", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ====> Ready to update bundle");
+        let status = 200,
+            text = "SUCCESS: Bundle document succesffully updated 👽",
+            ok = true;
+    
+            // Merchant uuid
+            const merchant_uuid:string = req.body.merchant_uuid;
+    
+            // Data to push
+            let bundle: Bundle = req.body.bundle;
+    
+            if (!bundle?.id && bundle?.id != "") {
+                throw new Error("Bundle did not exist propely");
+            }
+    
+            bundle = {
+                ...bundle,
+                updated_at: admin?.firestore?.Timestamp?.now(),
+                created_at: admin?.firestore?.Timestamp?.now(),
+            } 
+    
+            // TODO: SPECIAL SCOPE ACCESS CHECK
+    
+    
+            // TODO: SANATIZE DATA
+    
+            // Update collection document 
+            try {
+                await updateDocument(merchant_uuid, "bundles", bundle?.id,  bundle as Bundle);
+    
+                // data check && set
+                functions.logger.debug(" => Document created");
+                
+            } catch (e) {
+                text = "ERROR: Likely couldnt update a bundle document";
+                status = 500;
+                ok = false;
+                functions.logger.error(text);
+                throw new Error(text);
+            }   
+            
+            res.status(status).json({
+                ok: ok,
+                text: text,
+                result: bundle
+            })
     });
 
     app.post("/bundles", validateKey, async (req: express.Request, res: express.Response) => {

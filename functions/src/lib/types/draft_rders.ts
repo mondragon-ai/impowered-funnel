@@ -2,8 +2,8 @@ import { Address, ShippingLines } from "./addresses";
 import { DicsountCode } from "./discounts";
 
 export interface LineItem {
-    variant_id: number,
-    product_id: number,
+    variant_id: string,
+    product_id: string,
     high_risk: boolean,
     title: string,
     sku: string,
@@ -15,6 +15,7 @@ export interface LineItem {
     option3: string,
     weight: number,
     quantity: number,
+    is_recurring?: boolean
 }
 
 export interface DraftOrder {

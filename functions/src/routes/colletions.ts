@@ -1,8 +1,8 @@
 import * as express from "express";
 import * as functions from "firebase-functions";
-// import * as admin from "firebase-admin";
-import { createDocument, getCollections, getDocument } from "../lib/helpers/firestore";
-import { Funnel } from "../lib/types/funnels";
+import * as admin from "firebase-admin";
+import { createDocument, getCollections, getDocument, updateDocument } from "../lib/helpers/firestore";
+// import { Funnel } from "../lib/types/funnels";
 import { Collection } from "../lib/types/products";
 import { validateKey } from "./auth";
 
@@ -18,7 +18,7 @@ export const collectionRoutes = (app: express.Router) => {
         const merchant_uuid:string = req.body.merchant_uuid;
 
         // Data to push
-        const collection: Funnel = req.body.collection;
+        const collection: Collection = req.body.collection;
 
         // TODO: SPECIAL SCOPE ACCESS CHECK
 
@@ -46,6 +46,55 @@ export const collectionRoutes = (app: express.Router) => {
             result: {
                 col_uuid: result
             }
+        })
+    });
+
+
+    app.post("/collections/update", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ====> Ready to create collection");
+        let status = 200,
+            text = "SUCCESS: Collection document succesffully updated 👽",
+            ok = true;
+
+        // Merchant uuid
+        const merchant_uuid:string = req.body.merchant_uuid;
+
+        // Data to push
+        let collection: Collection = req.body.collection;
+
+        if (!collection?.id && collection?.id != "") {
+            throw new Error("Collection did not exist propely");
+        }
+
+        collection = {
+            ...collection,
+            updated_at: admin?.firestore?.Timestamp?.now(),
+            created_at: admin?.firestore?.Timestamp?.now(),
+        } 
+
+        // TODO: SPECIAL SCOPE ACCESS CHECK
+
+
+        // TODO: SANATIZE DATA
+
+        // Update collection document 
+        try {
+            await updateDocument(merchant_uuid, "collections", collection?.id,  collection as Collection);
+
+            functions.logger.debug(" => Document created");
+            
+        } catch (e) {
+            text = "ERROR: Likely couldnt update a collection document";
+            status = 500;
+            ok = false;
+            functions.logger.error(text);
+            throw new Error(text);
+        }   
+        
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: collection
         })
     });
 

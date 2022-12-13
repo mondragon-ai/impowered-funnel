@@ -13,6 +13,9 @@ import { orderRoutes } from "./routes/orders";
 import { funnelRoutes } from "./routes/funnels";
 import { collectionRoutes } from "./routes/colletions";
 import { bundleRoutes } from "./routes/bundles";
+import { giftCardRoutes } from "./routes/gift_cards";
+import { subscriptionRoutes } from "./routes/subscriptions";
+import { fulfillmentRoutes } from "./routes/fulfillments";
 
 
 export const rest = (db: FirebaseFirestore.Firestore) => {
@@ -52,6 +55,16 @@ export const rest = (db: FirebaseFirestore.Firestore) => {
 
     // Bundle Routes 
     bundleRoutes(app)
+
+    // Gift Card Routes 
+    giftCardRoutes(app)
+
+
+    // Gift Card Routes 
+    fulfillmentRoutes(app)
+
+    // subsc Routes 
+    subscriptionRoutes(app)
 
     //Funnel Routes
     funnelRoutes(app)
