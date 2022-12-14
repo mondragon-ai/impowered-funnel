@@ -14,7 +14,7 @@ export const fulfillmentRoutes = (app: express.Router) => {
             ok = true;
 
         // Merchant uuid
-        const merchant_uuid:string = req.body.merchant_uuid;
+        const merchant_uuid: string = req.body.merchant_uuid;
 
         // Data to push
         let fulfillments: Fulfillment = req.body.fulfillments;

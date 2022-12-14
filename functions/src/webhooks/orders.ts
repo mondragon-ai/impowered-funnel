@@ -1,11 +1,13 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import * as crypto from "crypto";
 import { updateAnalyticsOnOrderSuccess } from "../lib/helpers/analytics/update";
 import { getToday } from "../lib/helpers/date";
 import { createDocument, getDocument, getFunnelDocument, updateDocument } from "../lib/helpers/firestore";
 import { Customer } from "../lib/types/customers";
 import { Order } from "../lib/types/draft_rders";
-import { SubscriptionAgreement } from "../lib/types/products";
+import { SubscriptionAgreement, GiftCard} from "../lib/types/products";
+import { Fulfillment } from "../lib/types/fulfillments";
 
 export const orderCreated = functions.firestore
 .document('merchants/{merhcantId}/orders/{orderId}')
@@ -100,9 +102,9 @@ export const orderCreated = functions.firestore
     // TODO: Create sub ID
     // TODO: cretea data strcutre && type
     // TODO: cretea data strcutre && type
-    if (order?.line_items && order?.line_items.length > 0) {
+    if (line_items && line_items.length > 0) {
 
-        order?.line_items?.map(async (item) => {
+        line_items?.map(async (item) => {
             if (item?.is_recurring) {
                 await createDocument(MERCHANT_UUID, "subscriptions", "sub_", {
                     created_at: admin.firestore.Timestamp.now(),
@@ -131,34 +133,71 @@ export const orderCreated = functions.firestore
                     payment_method: "STRIPE" 
                 } as SubscriptionAgreement);
             } else {
-
-                await createDocument(MERCHANT_UUID, "subscriptions", "sub_", {
-                    created_at: admin.firestore.Timestamp.now(),
-                    updated_at: admin.firestore.Timestamp.now(),
-                    customer:{
-                        cus_uuid: order?.customer_id,
-                        first_name: order?.customer_id,
-                        last_name: order?.last_name,
-                        email: order?.email,
-                        addresses: order?.addresses,
-                    },
-                    schedule: {
-                        interval: 1,
-                        type: "MONTH",
-                    },
-                    product: {
-                        product_id: item?.product_id,
-                        variant_id: item?.variant_id,
-                        title: item?.title,
-                        options1: item?.option1,
-                        options2:  item?.option2,
-                        options3:  item?.option3,
-                        price:  item?.price,
-                    },
-                    order_number: order?.order_number,
-                    payment_method: "STRIPE" 
-                } as SubscriptionAgreement);
             }
-        })
+        });
+
+
+        await createDocument(MERCHANT_UUID, "fulfillments", "ful_", {
+            created_at: admin.firestore.Timestamp.now(),
+            updated_at: admin.firestore.Timestamp.now(),
+            id: "ful_" + crypto?.randomBytes(10).toString("hex"),
+            customer:{
+                cus_uuid: order?.customer_id,
+                first_name: order?.first_name,
+                last_name: order?.last_name,
+                email: order?.email,
+                addresses: order?.addresses,
+            },
+            last_order: {
+                id: order?.id,
+                line_items: line_items,
+                total_price: order?.current_total_price,
+                order_number: order?.order_number,
+                payment_status: order?.payment_status == "PAID" ? true : false, 
+                fulfillment_status: order?.fullfillment_status  == "DELIVERED" ? true : false, 
+            },
+            return_address: {
+                type: "BOTH",
+                line1: "3049 North College Avenue",
+                line2: "",
+                city: "Fayetville",
+                state: "AR",
+                zip: "72704",
+                country: "US",
+                name: order?.first_name + " " + order?.last_name,
+                title: "",
+            },
+            shipping_line: {
+                provider: "USPS",
+                rate: "STANDARD",
+                packaging_type: "PACKAGE",
+                weight: 0.5,
+                insurance: false,
+                price: 599
+            },
+            tracking_id: "", 
+            label_url: "", 
+            status: false
+        } as Fulfillment);
+        
     }
+
+    await createDocument(MERCHANT_UUID, "gift_cards", "gif_", {
+        created_at: admin.firestore.Timestamp.now(),
+        updated_at: admin.firestore.Timestamp.now(),
+        id: "gif_" + crypto?.randomBytes(10).toString("hex"),
+        customer:{
+            cus_uuid: order?.customer_id,
+            first_name: order?.first_name,
+            last_name: order?.last_name,
+            email: order?.email,
+            addresses: order?.addresses,
+        },
+        notes: "",
+        starting_balance: 4000,
+        current_balance: 4000,
+        code: crypto?.randomBytes(5).toString("hex")
+    } as GiftCard);
+
+    
 });

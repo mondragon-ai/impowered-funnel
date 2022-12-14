@@ -1,4 +1,4 @@
-import { Address } from "cluster";
+import { Address } from "./addresses";
 import { LastOrder } from "./customers";
 
 export type Fulfillment = {
