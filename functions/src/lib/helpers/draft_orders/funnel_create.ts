@@ -28,13 +28,18 @@ export const createFunnelDraftOrder = async (
                 let draft_data = {
                     high_risk: true,
                     line_items: [
-                        product
+                        {
+                            ...product,
+                            options1: "4-pack",
+                            options2: "",
+                            options3: "",
+                        }
                     ],
                     addresses: [
                         shipping as Address
                     ],
                     tags: ["CLICK_FUNNEL"],
-                    order_name: "SH-" + crypto.randomBytes(10).toString("hex"),
+                    order_number: "SH-" + crypto.randomBytes(10).toString("hex"),
                     first_name: shipping?.name as string,
                     updated_at: admin.firestore.Timestamp.now(),
                     created_at: admin.firestore.Timestamp.now(),

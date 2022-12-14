@@ -10,9 +10,9 @@ export interface LineItem {
     price: number,
     compare_at_price: number,
     handle: string,
-    option1: string,
-    option2: string,
-    option3: string,
+    options1: string,
+    options2: string,
+    options3: string,
     weight: number,
     quantity: number,
     is_recurring?: boolean

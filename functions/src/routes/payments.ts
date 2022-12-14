@@ -33,9 +33,9 @@ export const paymentsRoutes = (app: express.Router) => {
             price: 7500,
             compare_at_price: 0,
             handle: "delta-8-kush-berry-gummies",
-            option1: "4-Pack",
-            option2: "",
-            option3: "",
+            options1: "4-Pack",
+            options2: "",
+            options3: "",
             weight: 0.1
         };
 
@@ -48,9 +48,9 @@ export const paymentsRoutes = (app: express.Router) => {
                 price: 3700,
                 compare_at_price: 0,
                 handle: "delta-8-strawberry-gummies",
-                option1: "2-Pack",
-                option2: "",
-                option3: "",
+                options1: "2-Pack",
+                options2: "",
+                options3: "",
                 weight: 0.1
             }
         ];

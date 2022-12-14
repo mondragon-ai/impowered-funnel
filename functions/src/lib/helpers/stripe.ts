@@ -251,7 +251,7 @@ import { shopifyRequest } from "./shopify";
 
     let update_order = {
       ...draft_order,
-      line_items: [] as LineItem[],
+      line_items: [...draft_order?.line_items] as LineItem[],
       current_total_price: draft_order?.current_total_price + 4000,
       current_subtotal_price: draft_order?.current_subtotal_price ? draft_order?.current_subtotal_price + 4000 : 0,
     } as Order
@@ -269,9 +269,9 @@ import { shopifyRequest } from "./shopify";
             handle: "subscription_product",
             price: 4000,
             high_risk: false,
-            option1: "",
-            option2: "",
-            option3: "",
+            options1: "",
+            options2: "",
+            options3: "",
             weight: 0,
             compare_at_price: 0,
             quantity: 1
@@ -290,9 +290,9 @@ import { shopifyRequest } from "./shopify";
             handle: "subscription_product",
             price: 4000,
             high_risk: false,
-            option1: "",
-            option2: "",
-            option3: "",
+            options1: "",
+            options2: "",
+            options3: "",
             weight: 0,
             compare_at_price: 0,
             quantity: 1
