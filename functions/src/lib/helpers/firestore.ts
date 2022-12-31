@@ -128,13 +128,14 @@ export const getSessionAccount = async (
     .get();
 
     if (response.exists) {
-        functions.logger.debug(" ===> Get Session Document");
-        functions.logger.debug(response);
         result = response.data();
     } else {
         text = " - getting session document.";
         status = 400;
     }
+
+    functions.logger.debug(" => [GET SESSION DOCUMENT]");
+    functions.logger.debug(text);
 
     // return either result 
     return {
@@ -158,7 +159,7 @@ export const createDocument = async (
     data: any
 ) => {
     // Data for validation in parent
-    let text = "SUCCESS: Document Created 👍🏻", status = 200;
+    let text = "[SUCCESS]: Document Created 👍🏻", status = 200;
 
     //  generate doc uuid w/ prefix
     const doc_uuid = "" + prefix + crypto.randomBytes(10).toString('hex').substring(0,10);
@@ -194,30 +195,72 @@ export const createDocument = async (
 export const getCollections = async (
     merchant_uuid: string,
     collection: string,
+    state?: number,
+    operator?:  '<'
+    | '<='
+    | '=='
+    | '!='
+    | '>='
+    | '>'
+    | 'array-contains'
+    | 'in'
+    | 'not-in'
+    | 'array-contains-any',
 ) => {
 
     // Data for validation in parent
     let text = "SUCCESS: Document Created 👍🏻", status = 200;
 
-
     let response = {} as FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> ; 
     let colleciton: any[] = []; 
     let size = 0; 
+
+    const advanced_text = state || operator ? " - state or operator 🥲" : " - Doc UUID 🥲"
+
+    if (state && operator) {
+
+        try {
+            console.log(" ====> [STATE && OPERATOR]")
+            response = await db
+            .collection("merchants")
+            .doc(merchant_uuid)
+            .collection(collection)
+            .where('state', operator as  '<'
+                  | '<='
+                  | '=='
+                  | '!='
+                  | '>='
+                  | '>'
+                  | 'array-contains'
+                  | 'in'
+                  | 'not-in'
+                  | 'array-contains-any', state)
+            .limit(25)
+            .get()
     
+        } catch {
+            text = " - Could not fetch collection. check collection" + advanced_text;
+            status = 400;
+        }
+    
+    } else {
 
-    try {
-        response = await db
-        .collection("merchants")
-        .doc(merchant_uuid)
-        .collection(collection)
-        .limit(25)
-        .get()
-
-    } catch {
-        text = " - Could not fetch collection. check collection | uuid.";
-        status = 400;
+        try {
+            console.log(" ====> [ORDERED]")
+            response = await db
+            .collection("merchants")
+            .doc(merchant_uuid)
+            .collection(collection)
+            .orderBy('created_at', "desc")
+            .limit(25)
+            .get()
+    
+        } catch {
+            text = " - Could not fetch collection. check collection" + advanced_text;
+            status = 400;
+        }
     }
-
+    
     if (response.size > 0) {
         size = response.size;
         response.forEach(item => {
@@ -226,6 +269,10 @@ export const getCollections = async (
                 item.data()
             ]
         })
+    } else {
+        text = " - Nothing wrong, just not found";
+        status = 420;
+        size = 0;
     }
 
     // return either result 
@@ -306,8 +353,6 @@ export const simlpeSearch = async (
     .where(key, "==", data)
     .get()
 
-    console.log(" ==> 103 -");
-    console.log(result);
     if (result.empty) {
         text = " - Document NOT updated 👎🏻";
         status = 400;
@@ -336,6 +381,32 @@ export const getFunnelDocument = async (
     .doc(funnnel_uuid)
     .collection(collection)
     .doc(uuid)
+    .get();
+
+    return {
+        text: result.exists ? text : " - Document NOT found 👎🏻 ",
+        status: result.exists ? status : 400,
+        data: result.exists ? result.data() : undefined
+    }
+}
+
+
+export const getFunnelAnalytics= async (
+    merchant_uuid: string,
+    funnel_uuid: string,
+    date: string,
+) => {
+    // Data for validation in parent
+    console.log("140: Get Document --------------------- ");
+    let text = " - Document found 👍🏻", status = 200;
+
+    let result: FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>  = await db
+    .collection("merchants")
+    .doc(merchant_uuid)
+    .collection("funnels")
+    .doc(funnel_uuid)
+    .collection("analytics")
+    .doc(date)
     .get();
 
     return {

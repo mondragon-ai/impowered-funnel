@@ -3,7 +3,8 @@ import { LineItem } from "../../types/draft_rders";
 
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
-import { updateDocument, updateFunnelsDocument } from "../firestore";
+import { getFunnelAnalytics, updateDocument, updateFunnelsDocument } from "../firestore";
+import { getToday } from "../date";
 
 export const updateAnalyticsOnOrderSuccess = async (
     store_status: number,
@@ -116,6 +117,90 @@ export const updateAnalyticsOnOrderSuccess = async (
             }
         }    
 
+        
+    }
+}
+
+export const updateFunnelCheckout = async (
+    merchant_uuid: string,
+    funnel_uuid: string,
+    price: number
+) => {
+
+    try {
+
+        if (funnel_uuid && funnel_uuid !== "") {
+        
+            let TODAY = await getToday();
+
+            const result = await getFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY))
+
+            const analytics: DailyFunnel = result.data as DailyFunnel;
+
+            const uopv = analytics.order_page_views ? analytics.order_page_views : 1;
+
+            const update = {
+                ...analytics,
+                order_sales_count: (analytics.order_sales_count + 1),
+                order_sales_rate: ((analytics.order_sales_count + 1) / (uopv)),
+                order_sales_value: (analytics.order_sales_value + price),
+                updated_at: admin.firestore.Timestamp.now()
+            }
+
+            await updateFunnelsDocument(merchant_uuid, "analytics", String(TODAY), update);
+        } 
+
+    } catch (e) {
+        functions.logger.info("154: [ERROR] - Updating analytics ");
+    }
+}
+
+export const updateFunnelSubPurchase = async (
+    merchant_uuid: string,
+    funnel_uuid: string,
+    price: number
+) => {
+
+    try {
+
+        if (funnel_uuid && funnel_uuid !== "") {
+
+            // Get todays date in ID string
+            const TODAY = await getToday();
+    
+            // Fetch Funnel Data
+            const result = await getFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY))
+    
+            // Set data
+            const analytics: DailyFunnel = result.data ? result.data  as DailyFunnel : {}  as DailyFunnel;
+     
+            // Logging
+            functions.logger.info(" => [ANALYTICS] - Quick Sub");
+    
+            const { 
+              upsell_sales_count,
+              upsell_sales_value,
+              upsell_unique_page_views,
+              upsell_recurring_count
+            } = analytics;
+        
+            // set unique views
+            const uupv = upsell_unique_page_views > 0 ? upsell_unique_page_views : 1;
+        
+            // Update FB Doc 
+            await updateFunnelsDocument(merchant_uuid, "analytics", String(TODAY), {
+              updated_at: admin.firestore.Timestamp.now(),
+              upsell_sales_count: (upsell_sales_count + 1),
+              upsell_sales_value: (upsell_sales_value + price),
+              upsell_sales_rate: ((upsell_sales_count + 1) / (uupv)),
+              upsell_recurring_count: (upsell_recurring_count + 1) ,
+              upsell_recurring_value: (upsell_sales_value + price)
+            } as DailyFunnel);
+        } else { 
+            // TODO: Update store analytics? 
+        }
+    } catch (e) {
+        throw new Error("[ERROR]: Likely due to updating analytics");
         
     }
 }

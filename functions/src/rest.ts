@@ -17,6 +17,7 @@ import { giftCardRoutes } from "./routes/gift_cards";
 import { subscriptionRoutes } from "./routes/subscriptions";
 import { fulfillmentRoutes } from "./routes/fulfillments";
 import { openAPIRoutes } from "./routes/openAPI";
+import { twitterRoutes } from "./apis/twitter";
 
 
 export const rest = (db: FirebaseFirestore.Firestore) => {
@@ -71,6 +72,9 @@ export const rest = (db: FirebaseFirestore.Firestore) => {
 
     //Funnel Routes
     funnelRoutes(app)
+
+    // Twitter ROutes 
+    twitterRoutes(app)
     
 
     return app

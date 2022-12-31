@@ -1,8 +1,5 @@
-import * as express from "express"
-// import { getDocument, getFunnelDocument, updateDocument, updateFunnelsDocument } from "../lib/helpers/firestore";
-// import { handleStripeCharge, handleSubscription } from "../lib/helpers/stripe";
-// import { Customer } from "../lib/types/customers";
-// import * as functions from "firebase-functions";
+import * as express from "express";
+import * as xssFilters from "xss-filters";
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import { generateAPIKey } from "../lib/helpers/auth/auth";
@@ -67,16 +64,17 @@ export const authRoutes = (app: express.Router) => {
 }
 
 export const validateKey = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    functions.logger.debug(" ===> SESSIONS VALIDATE");
-    let text = "ERROR: Likely auth problems 🔥", status= 500, account: AppSession | null = null;
+    functions.logger.debug(" ===> [SESSIONS VALIDATE]");
+    let text = "[ERROR]: Likely auth problems 🔥", status= 401, account: AppSession | null = null;
     let api_key = req.header('impowered-api-key') as string; 
-    functions.logger.debug(" => API KEY " + api_key);
+    functions.logger.debug(" => [API KEY] " + api_key);
 
     try {
-        const response = await getSessionAccount(api_key);
+        const key = xssFilters.inHTMLData(api_key)
+        const response = await getSessionAccount(key);
 
         if (response.status < 300) {
-            functions.logger.debug(" ===> SESSIONS FOUND");
+            functions.logger.debug(" => [SESSIONS FOUND]");
             account = response.data;
         } else {
             text = text + response.text;
@@ -85,7 +83,7 @@ export const validateKey = async (req: express.Request, res: express.Response, n
 
     } catch (e) {
         status = 404;
-        text = text + " - cant find session document.";
+        text = text + " - cant find session document. Check API KEYS";
     }
 
     let update_session = {
@@ -125,7 +123,7 @@ export const validateKey = async (req: express.Request, res: express.Response, n
             if (api_key !==  account.api_key) {
                 functions.logger.debug(" =>  wrong key / host match");
                 VALID = false
-                text = text + " - host & key match"
+                text = text + `${text} - host & key match`
                 status = 400;
             } 
 

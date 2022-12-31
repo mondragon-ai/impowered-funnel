@@ -1,11 +1,59 @@
 import fetch, { Headers } from "node-fetch";
+import * as functions from "firebase-functions";
+
+
+const twitter_URL = "https://api.twitter.com/2";
+const twitter_HEADERS =  new Headers({
+    "Content-Type": "application/json",
+    'Authorization': "Bearer " + process.env.TWITTER_BEARER_TOKEN,
+})
+
+export const twitterRequest = async (
+    resource: string,
+    method: string,
+    data: any
+) => {
+
+    let text = " - Problem fetching -> " + resource, 
+        status = 500;
+
+    let response: any | null;
+
+    if (data != null) {
+    console.log("WITH BODY");
+       response = await fetch(twitter_URL + resource, {
+            method: method != "" ? method : "GET",
+            body: JSON.stringify(data),
+            headers: twitter_HEADERS
+        })
+    } else {
+        response = await fetch(twitter_URL + resource, {
+            method: "GET",
+            headers: twitter_HEADERS
+        })
+    }
+
+    let result = null;
+
+    if (response != null) {
+        result = await response.json();
+        text = " - Fetched " + resource, 
+        status = 200;
+    }
+
+    return {
+        text,
+        status,
+        data: result
+    }
+}
+
 
 const URL = "https://connect.squareupsandbox.com/v2";
-const HEADERS =  new Headers({
+const HEADERS =  {
     "Content-Type": "application/json",
-    "Square-Version": "2022-10-19",
     'Authorization': "Bearer " + process.env.SQUARE_ACCESS_TOKEN,
-})
+}
 
 export const impoweredRequest = async (
     resource: string,
@@ -21,7 +69,6 @@ export const impoweredRequest = async (
     let response: any | null;
 
     if (data != null) {
-    console.log("WITH BODY");
        response = await fetch(URL + resource, {
             method: method != "" ? method : "GET",
             body: JSON.stringify(data),
@@ -62,7 +109,122 @@ export const openAPIRequests = async (
     data: any
 ) => {
 
-    console.log(open_HEADERS);
+    functions.logger.debug("\n\n\n\n ====> Inputs");
+    functions.logger.debug(open_URL + resource);
+    functions.logger.debug(method);
+    functions.logger.debug(data);
+
+    let text = " - Uploading to this route (open AI) -> " + resource, 
+        status = 500;
+
+    let response: any | null;
+
+    if (method != "GET") {
+       response = await fetch(open_URL + resource, {
+            method: method != "" ? method : "GET",
+            body: JSON.stringify(data),
+            headers: open_HEADERS
+        })
+        text = "SUCCESS: Uploaded to this route (open AI) -> " + resource, 
+        status = 200;
+    } else {
+        response = await fetch(open_URL + resource, {
+            method: "GET",
+            headers: open_HEADERS
+        })
+        text = "SUCCESS: Uploaded to this route (open AI) -> " + resource, 
+        status = 200;
+    }
+
+    let result = null;
+
+    if (response.status < 300) {
+        result = await response.json();
+        text = " - Fetched " + resource, 
+        status = 200;
+    }
+    functions.logger.debug("\n\n\n ====> Outputs");
+    functions.logger.debug(response);
+    functions.logger.debug(await response.json());
+
+    return {
+        text,
+        status,
+        data: result
+    }
+}
+const open_normal_HEADERS =  new Headers({
+    "Content-Type": "application/json",
+    'Authorization': "Bearer " + process.env.OPEN_API_KEY,
+})
+
+
+export const divinciRequests = async (
+    resource: string,
+    method: string,
+    data: any
+) => {
+
+    functions.logger.debug("\n\n\n\n ====> Inputs");
+    functions.logger.debug(open_URL + resource);
+    functions.logger.debug(method);
+    functions.logger.debug(data);
+
+    let text = " - Uploading to this route (open AI) -> " + resource, 
+        status = 500;
+
+    let response: any | null;
+
+    if (method != "GET") {
+       response = await fetch(open_URL + resource, {
+            method: method != "" ? method : "GET",
+            body: JSON.stringify(data),
+            headers: open_normal_HEADERS
+        })
+        text = "SUCCESS: Uploaded to this route (open AI) -> " + resource, 
+        status = 200;
+    } else {
+        response = await fetch(open_URL + resource, {
+            method: "GET",
+            headers: open_normal_HEADERS
+        })
+        text = "SUCCESS: Uploaded to this route (open AI) -> " + resource, 
+        status = 200;
+    }
+
+    let result = null;
+
+    if (response.status < 300) {
+        result = await response.json();
+        text = " - Fetched " + resource, 
+        status = 200;
+    }
+    functions.logger.debug("\n\n\n ====> Outputs");
+    functions.logger.debug(response);
+    functions.logger.debug(result);
+
+    return {
+        text,
+        status,
+        data: result
+    }
+}
+
+
+
+
+const ship_URL = "https://api.shipengine.com/v1";
+const ship_HEADERS =  new Headers({
+    "Content-Type": "application/json",
+    'API-key': "" + process.env.SHIP_ENGINE_API_KEY,
+})
+
+
+export const shipEngineAPIRequests = async (
+    resource: string,
+    method: string,
+    data: any
+) => {
 
     let text = " - Problem fetching -> " + resource, 
         status = 500;
@@ -70,16 +232,15 @@ export const openAPIRequests = async (
     let response: any | null;
 
     if (data != null) {
-    console.log("WITH BODY");
-       response = await fetch(open_URL + resource, {
+       response = await fetch(ship_URL + resource, {
             method: method != "" ? method : "GET",
             body: JSON.stringify(data),
-            headers: open_HEADERS
+            headers: ship_HEADERS
         })
     } else {
-        response = await fetch(open_URL + resource, {
+        response = await fetch(ship_URL + resource, {
             method: "GET",
-            headers: open_HEADERS
+            headers: ship_HEADERS
         })
     }
 

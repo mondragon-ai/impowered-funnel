@@ -25,6 +25,7 @@ export const fulfillmentRoutes = (app: express.Router) => {
             ...fulfillments,
             updated_at: admin?.firestore?.Timestamp?.now(),
             created_at: admin?.firestore?.Timestamp?.now(),
+            merchant_uuid: merchant_uuid
         } 
 
         // Create fulfillment document 
@@ -38,7 +39,7 @@ export const fulfillmentRoutes = (app: express.Router) => {
             functions.logger.debug(" => Document created");
             
         } catch (e) {
-            text = "ERROR: Likely couldnt create a fulfillment document";
+            text = "[ERROR]: Likely couldnt create a fulfillment document";
             status = 500;
             ok = false;
             functions.logger.error(text);

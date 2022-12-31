@@ -13,44 +13,64 @@ export const openAPIRoutes = (app: express.Router) => {
         let status = 200,
             text = "SUCCESS: Uploaded data to train a model for imPowered 👽",
             ok = true;
-
-
-        // Load the JSON data from a file or string
-        const jsonData = [
-            {
-                text: "order number for angel mondragon with email angel@gmail.com is #SH-91273bi1"
-            },
-            {
-                text: "order number for Darth Maul with email darth.maul@gmail.com is #SH-239IH2hE"
-            },
-            {
-                text: "order number for Obi Kanobi with email obi@gmail.com is #SH-O234IH"
-            },
-            {
-                text: "order number for Darth Vader with email darth.vader@gmail.com is #SH-HB93489"
-            }
-        ]
-        // Extract the text data from the JSON objects
-        const textData = jsonData.map((obj: any) => obj.text);
         
-        // Save the text data to a file in the appropriate format for GPT-3
-        fs.writeFileSync('gpt3_data.txt', textData.join('\n'));
+        // Parse the JSON object
+        const jsonObject = JSON.parse('{"orderId": 12345, "customerName": "John Doe", "items": [{"name": "item1", "quantity": 2}, {"name": "item2", "quantity": 1}]}');
 
-        const open = await openAPIRequests("/files", "POST", {
-            purpose: "fine-tune",
-            file: fs.createReadStream('gpt3_data.txt')
+        // Create a string representation of the JSON object
+        let jsonString = '';
+        jsonString += `Order ID: ${jsonObject.orderId}\n`;
+        jsonString += `Customer Name: ${jsonObject.customerName}\n`;
+        jsonString += 'Items:\n';
+
+        if (jsonObject.items) {
+            const items = jsonObject.items as {
+                name: "",
+                quantity: ""
+            }[];
+
+            items.forEach((item) => {
+                jsonString += `- ${item.name} (${item.quantity})\n`;
+            });
+        }
+
+        console.log('\n\n\n => Start file write');
+        // Write the string representation to a .txt file
+        await fs.writeFile('./order.txt', jsonString, (err) => {
+
+            if (err) {
+                console.error("\n\n\n" + err);
+            } else {
+                console.log('\n\n\nFile saved successfully!');
+            }
         });
+        
+        // Upload the file to GPT-3 for training
+        try {
+            setTimeout(async () => {
+                console.log('\n\n\n => Upload file');
+                const response = await openAPIRequests('/files', "POST", {
+                    file: fs.createReadStream('./order.txt'),
+                    purpose: "fine-tune"
+                });
+                // const data = fs.readFileSync('./order.txt');
 
-        console.log(open)
+                console.log('\n\n\n => open AI response');
+                console.log(fs.createReadStream('./order.txt'));
+                console.log(response);
+
+            }, 500)
+
+        } catch (error) {
+            console.error(error);
+            text = "ERROR: Failed to upload training data."
+        }
     
         
         res.status(status).json({
             ok: ok,
             text: text,
-            result: {
-                open: open,
-                textData: textData
-            }
+            result: null
         })
     });
 

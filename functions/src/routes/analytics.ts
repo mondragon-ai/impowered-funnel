@@ -94,7 +94,7 @@ export const analyticRoutes = (app: express.Router) => {
             console.log("TRY");
             const response = await getFunnelDocument(MERCHANT_UUID, "analytics", String(TODAY));
 
-            console.log(response);
+            // console.log(response);
             if (response.status < 300 && response.data != undefined) {
                 result = response.data as DailyFunnel;
                 status = 200;
@@ -116,7 +116,7 @@ export const analyticRoutes = (app: express.Router) => {
 
             pv.forEach(pair => {
 
-                const n = result?.[pair[1]] == NaN ? 0 : result?.[pair[1]] == undefined ? 0 :  result?.[pair[1]];
+                const n = Number.isNaN(result?.[pair[1]]) ? 0 : result?.[pair[1]] == undefined ? 0 :  result?.[pair[1]];
                 console.log(n);
 
                 update = {
@@ -127,7 +127,7 @@ export const analyticRoutes = (app: express.Router) => {
 
             const response = await updateFunnelsDocument(MERCHANT_UUID, "analytics", String(TODAY), update);
 
-            console.log(response);
+            // console.log(response);
             if (response.status < 300 && response.data != undefined) {
                 result = response.data;
                 status = 200;

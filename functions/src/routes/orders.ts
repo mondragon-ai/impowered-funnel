@@ -1,5 +1,6 @@
 import * as express from "express";
 import * as functions from "firebase-functions";
+import { completeDraftOrder } from "../lib/helpers/draft_orders/complete";
 import { createDocument, getCollections, getDocument } from "../lib/helpers/firestore";
 import { Order } from "../lib/types/draft_rders";
 import { validateKey } from "./auth";
@@ -48,7 +49,7 @@ export const orderRoutes = (app: express.Router) => {
     app.post("/orders", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ====> Customer Created Route Started ");
         let status = 200,
-            text = "SUCCESS: Order(s) sucessfully fetched ✅",
+            text = "[SUCCESS]: Order(s) sucessfully fetched ✅",
             result: Order[] = [],
             size = 0,
             ok = true;
@@ -68,6 +69,11 @@ export const orderRoutes = (app: express.Router) => {
                 if (response?.data?.collection && response.status < 300) {
                     result = response?.data?.collection;
                     size = response?.data?.size ? response?.data?.size : 1;
+                }
+                if (response.status == 420) {
+                    text = response.text;
+                    size = 0;
+                    ok = false;
                 }
             } else {
                 const response = await getDocument(merchant_uuid, "orders", ord_uuid);
@@ -95,6 +101,41 @@ export const orderRoutes = (app: express.Router) => {
         })
     });
 
+
+    app.post("/draft_orders/complete_server", async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ====> [COMPLETE DRAFT ORDER] - Started Route ✅");
+        let status = 200,
+            text = "[SUCCESS]: Order sucessfully completed ✅",
+            ok = true;
+
+        const {
+            merchant_uuid,
+            dra_uuid,
+            cus_uuid
+        } = req.body;
+
+        functions.logger.debug(" ====> [INPUT] 👇🏻");
+        functions.logger.debug(merchant_uuid);
+        functions.logger.debug(dra_uuid);
+        functions.logger.debug(cus_uuid);
+        
+        try {
+          // Create Order
+          await completeDraftOrder(merchant_uuid, dra_uuid, cus_uuid);
+          
+        } catch (e) {
+            text = "[ERROR]: Likely a problem completing a order";
+            status = 500;
+            ok = false;
+            functions.logger.error(text);
+        }
+
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: " Did delete: " + ok
+        })
+    });
 
     app.post("/draft_orders", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ====> Customer Created Route Started ");

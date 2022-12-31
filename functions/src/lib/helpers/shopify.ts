@@ -78,7 +78,7 @@ export const createShopifyOrder =  async (
  * @param email 
  */
 export const createShopifyCustomer = async (shipping: Address, email:string) => {
-  functions.logger.info({shipping: shipping, email: email});
+  functions.logger.info(" ==> [SHOPIFY] - Start Update")
 
   // Define vars
   const {line1, city, state, zip, name} = shipping;
@@ -115,7 +115,7 @@ export const createShopifyCustomer = async (shipping: Address, email:string) => 
     const response = await shopifyRequest( `customers.json`, "POST", customer_data);
 
     // ? Log to BE 
-    functions.logger.log("\n\n\n\n#3 Update Customer - Shopify.ts ");
+    functions.logger.log(" ==> #3 [SHOPIFY] - Request Made ");
 
     // Check if exists && retrun {[customers: {id: customer.id}]}
     const status = await checkStatus(response, email); 
@@ -149,13 +149,13 @@ export const createShopifyCustomer = async (shipping: Address, email:string) => 
  * @returns - {customer: [{id: customer.id}]} || undefined
  */
 async function checkStatus(r: any, e: string) {
-  functions.logger.info({response: r, email: e});
   // If 200 >= x < 300 &&
   // Return {customer: [{id: customer.id}]}
   if (r.ok) { 
     // Await json response and return data
     const doc = await r.json();
 
+    console.log(" ====> [SHOPIFY] -> 200 resonse");
     const d = new Object({
         customers: [{
             id: doc.customer.id
@@ -172,6 +172,8 @@ async function checkStatus(r: any, e: string) {
       );
 
       const customer = await response.json()
+
+      console.log(" ====> [SHOPIFY] -> 422 resonse");
       return new Object(customer);
       
     } catch (error) { return undefined; }

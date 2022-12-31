@@ -1,32 +1,31 @@
 import * as express from "express"
-import { getDocument, getFunnelDocument, updateDocument, updateFunnelsDocument } from "../lib/helpers/firestore";
+import { getDocument, updateDocument } from "../lib/helpers/firestore";
 import { handleStripeCharge, handleSubscription } from "../lib/helpers/stripe";
 import { Customer } from "../lib/types/customers";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { impoweredRequest } from "../lib/helpers/requests";
 import * as crypto from "crypto";
-import { DraftOrder } from "../lib/types/draft_rders";
-import { DailyFunnel } from "../lib/types/analytics";
-import { getToday } from "../lib/helpers/date";
+import { DraftOrder, LineItem, Order } from "../lib/types/draft_rders";
+import { updateFunnelSubPurchase } from "../lib/helpers/analytics/update";
+import { validateKey } from "./auth";
 
 export const paymentsRoutes = (app: express.Router) => {
     app.post("/payments/quick-buy", async (req: express.Request, res: express.Response) => {
         let status = 500,
-        text = "ERROR: LIkely internal problem 👽",
-        data: Customer | null = null;
+        text = " =====> [ERROR]: LIkely internal problem 👽",
+        customer: Customer | null = null;
 
-        // Merchant UUID 
-        const MERCHAND_UUID = "50rAgweT9PoQKs5u5o7t";
+        const {
+            merchant_uuid,
+            cus_uuid,
+            dra_uuid,
+            high_risk
+        } = req.body
 
-        // cus_uuid 
-        const cus_uuid = "cus_3bd86494a7";
-
-        // dra_uuid 
-        const dra_uuid = "dra_fa9019df4d";
 
         // product 
-        const product = {
+        const product: LineItem = req.body.product || {
             high_risk: true,
             title: "Delta 8 Kush Berry Gummies",
             sku: "D8-KB-GUM",
@@ -40,67 +39,50 @@ export const paymentsRoutes = (app: express.Router) => {
         };
 
         // product 
-        const line_items = [
-            {
-                high_risk: true,
-                title: "Delta 8 Strawberry Gummies",
-                sku: "D8-SRA-GUM",
-                price: 3700,
-                compare_at_price: 0,
-                handle: "delta-8-strawberry-gummies",
-                options1: "2-Pack",
-                options2: "",
-                options3: "",
-                weight: 0.1
-            }
-        ];
+        const line_items: LineItem[] = [product];
 
         try {
 
             // fetch usr from DB to get stripe UUID
-            const result = await getDocument(MERCHAND_UUID, "customers", cus_uuid);
+            const repsonse = await getDocument(merchant_uuid, "customers", cus_uuid);
 
-            if (result.status < 300) {
-                data =  result.data != undefined ? (result.data) as Customer  : null;
+            if (repsonse.status < 300) {
+                customer =  repsonse.data != undefined ? (repsonse.data) as Customer  : null;
                 status = 200;
-                text = "SUCCESS: " + result.text;
+                text = " => [SUCCESS]: " + repsonse.text;
             } 
             
         } catch (e) {
             functions.logger.info(text + " - Fetching DB User")
         }
 
-        let result = {
-            STRIPE_PI: "",
-            STRIPE_PM: ""
-        }
+        let result = ''
         
         try {
             // Make initial charge
             result = await handleStripeCharge(
-                MERCHAND_UUID,
-                String(data?.stripe?.UUID),
-                product.price,
-                String(data?.email),
-                text,
+                customer as Customer,
+                product?.price,
                 product,
                 null,
-                cus_uuid);
+                high_risk);
 
         } catch (e) {
             functions.logger.info(text + " - Charging Stripe | square");
         }
 
         try {
-            if (result.STRIPE_PI != "") {
+            if (result && result !== "") {
                 // Make initial charge
-                await updateDocument(MERCHAND_UUID, "draft_orders", dra_uuid, {
+                await updateDocument(merchant_uuid, "draft_orders", dra_uuid, {
+                    order_number: "",
                     line_items: [
                         ...line_items,
                         product
                     ],
                     updated_at: admin.firestore.Timestamp.now(),
-                });
+                    transaction_id: result
+                } as Order);
             }
             
         } catch (e) {
@@ -146,7 +128,6 @@ export const paymentsRoutes = (app: express.Router) => {
     
             const test = await impoweredRequest("/customers", "", null);
 
-
             // Logging
             functions.logger.info('Store Card succeeded!', test);
             
@@ -158,7 +139,7 @@ export const paymentsRoutes = (app: express.Router) => {
             functions.logger.info('Store Card succeeded!', { text, status });
             
             // Logging
-            t = "SUCCESS: " + text;
+            t = "[SUCCESS]: " + text;
             s = status
 
             console.log(data)
@@ -181,95 +162,60 @@ export const paymentsRoutes = (app: express.Router) => {
         })
     })
 
-    app.post("/payments/quick-sub", async (req: express.Request, res: express.Response) => {
-        let s = 500,
-        t = "ERROR: LIkely internal problem 👽";
+    app.post("/payments/quick-sub", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.info(" ====> [PAYMENT CREATE] - Started ")
+        let status = 500,
+            text = "[ERROR]: Likey internal problems 🤷🏻‍♂️. ",
+            ok = false;
 
-        const MERCHANT_UUID = "50rAgweT9PoQKs5u5o7t";
-
-        // CUS UUID
-        const cus_uuid = req.body.cus_uuid as string;
+        // Items from funnel checkout page
+        const {
+            cus_uuid, 
+            merchant_uuid,
+            funnel_uuid,
+            product
+        } = req.body
 
         // Customer Doc
-        const customer: Customer = (await getDocument(MERCHANT_UUID, "customers", cus_uuid)).data as Customer;
+        const customer: Customer = (await getDocument(merchant_uuid, "customers", cus_uuid)).data as Customer;
         let draft_order: DraftOrder = {} as DraftOrder;
 
         // Logging
-        functions.logger.info("\n\n\n188: ROOT - Customer ==>\n");
+        functions.logger.info("[CUSTOMER] - Fetched:");
         console.log(customer);
 
         try {
-            console.log(customer.draft_orders[0])
-            draft_order = (await getDocument(MERCHANT_UUID, "draft_orders", customer.draft_orders[0])).data as DraftOrder;
+            console.log(customer.draft_orders)
+            draft_order = (await getDocument(merchant_uuid, "draft_orders", customer.draft_orders)).data as DraftOrder;
         } catch (e) {
-            t = t + " - fetching draft order";
+            text = text + " - fetching draft order";
         };
 
-        // Set vars for subs
-        const shopify_uuid = customer.shopify_uuid;
-        const stripe_uuuid = customer.stripe?.UUID as string;
-        const stripe_pm = customer.stripe?.PM as string;
 
         // Logging
-        functions.logger.info("\n\n\n202: ROOT - PRE FETCH DATA ==>\n");
-        functions.logger.info(shopify_uuid);
-        functions.logger.info(stripe_uuuid);
-        functions.logger.info(stripe_pm);
-        functions.logger.info(draft_order);
+        functions.logger.info("[DRAFT_ORDER] - Fetched:");
+        console.log(draft_order);
+
+        const price = (product as LineItem) ? (product as LineItem).price : 100;
 
         try {
-            const result = await handleSubscription(MERCHANT_UUID, cus_uuid, shopify_uuid, stripe_uuuid, stripe_pm, draft_order);
-            functions.logger.info(result);
-            s = 200;
-            t = "SUCCESS: Cutomer charged & subbed 👽 ";
+            const result = await handleSubscription(customer, merchant_uuid, draft_order, price);
+            console.log("[SUCCESS]: Cutomer charged & subbed 👽 ");
+            console.log(result);
+            status = 200;
+            text = "[SUCCESS]: Cutomer charged & subbed 👽 ";
             
         } catch (e) {
-            t = t + " - Stripe Sub"
+            text = text + " - Stripe Sub"
         }
 
-        try {
+        // Update  analytics
+        await updateFunnelSubPurchase(merchant_uuid, funnel_uuid, price)
 
-            // Get todays date in ID string
-            const today = await getToday();
 
-            // Update FB Doc 
-            const funnelDoc = (await getFunnelDocument(MERCHANT_UUID, "analytics", String(today))).data as DailyFunnel;
-
-            // Logging
-            functions.logger.info("\n\n\n240: HANDLE STRIPE CHARGE - FUNNEL (analytics) ==>\n");
-            functions.logger.info(funnelDoc);
-
-            const { 
-              upsell_sales_count,
-              upsell_sales_value,
-              upsell_unique_page_views,
-              upsell_recurring_count
-            } = funnelDoc;
-        
-            // set unique views
-            const uupv = upsell_unique_page_views > 0 ? upsell_unique_page_views : 1;
-        
-            // Update FB Doc 
-            const funnel = await updateFunnelsDocument(MERCHANT_UUID, "analytics", String(today), {
-              updated_at: admin.firestore.Timestamp.now(),
-              upsell_sales_count: (upsell_sales_count + 1),
-              upsell_sales_value: (upsell_sales_value + 4000),
-              upsell_sales_rate: ((upsell_sales_count + 1) / (uupv)),
-              upsell_recurring_count: (upsell_recurring_count + 1) ,
-              upsell_recurring_value: (upsell_sales_value + 4000)
-            } as DailyFunnel);
-
-            // Logging
-            functions.logger.info("\n\n\n3247: HANDLE STRIPE CHARGE - Funnel (FB doc) ==>\n");
-            functions.logger.info(funnel);
-
-            
-        } catch (e) {
-            t = t + " - update funnel"
-        }
-
-        res.status(s).json({
-            text: t,
+        res.status(status).json({
+            ok: ok,
+            text: text,
             data: null
         })
     });

@@ -3,11 +3,10 @@ import { impoweredRequest } from "./requests";
 export const createSquareCustomer = async (
     new_customer: any
 ) => {
-    let data = null;
 
-    data = await impoweredRequest("/customers", "POST", new_customer);
+    let data = await impoweredRequest("/customers", "POST", new_customer);
 
-    return data
+    return data?.data ?  data?.data : null
 }
 
 

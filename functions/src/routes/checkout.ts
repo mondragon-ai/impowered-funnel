@@ -1,107 +1,107 @@
 import * as express from "express";
 import * as functions from "firebase-functions";
-import * as admin from "firebase-admin";
-import { getDocument, getFunnelDocument, simlpeSearch, updateFunnelsDocument } from "../lib/helpers/firestore";
+import { getDocument, simlpeSearch } from "../lib/helpers/firestore";
 import { Customer } from "../lib/types/customers";
 import { handleStripeCharge, updateStripeCustomer } from "../lib/helpers/stripe";
-import { DailyFunnel } from "../lib/types/analytics";
-import { getToday } from "../lib/helpers/date";
 import { DraftOrder } from "../lib/types/draft_rders";
+import { validateKey } from "./auth";
+// import { updateFunnelCheckout } from "../lib/helpers/analytics/update";
+import { Address } from "../lib/types/addresses";
 
 export const checkoutRoutes = (app: express.Router) => {
 
     /**
-     * STEP #3 - Make initial purchase -> starting order
+     * Checkout route
      */
-     app.post("/checkout/quick", async (req: express.Request, res: express.Response) => {
+     app.post("/checkout/quick", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.info(" =====> [FUNNEL CHECKOUT]")
         let status = 500,
-            text = "ERROR: Likey internal problems 🤷🏻‍♂️. ",
-            data: Customer | null = null;
+            text = "[ERROR]: Likey internal problems 🤷🏻‍♂️. ",
+            ok = false,
+            customer: Customer | null = null;
 
-        // Merchant ID
-        const MERCHAND_UUID = "50rAgweT9PoQKs5u5o7t";
-
-        // customer uuid &  shipping, product, bump info 
-        const {cus_uuid, shipping, product, bump} = req.body
-
-        console.log(cus_uuid);
+        // Items from funnel checkout page
+        const {
+            cus_uuid, 
+            product,
+            bump,
+            merchant_uuid,
+            funnel_uuid,
+            high_risk,
+            shipping
+        } = req.body
 
         try {
 
+            functions.logger.info(" =====> [GET DOC] - Customer")
             // fetch usr from DB to get stripe UUID
-            const result = await getDocument(MERCHAND_UUID, "customers", cus_uuid);
+            const result = await getDocument(merchant_uuid, "customers", cus_uuid);
 
             if (result.status < 300) {
-                data =  result.data != undefined ? (result.data) as Customer  : null;
+                customer =  result.data != undefined ? (result.data) as Customer  : null;
                 status = 200;
-                text = "SUCCESS: " + result.text;
+                ok = true;
+                text = "[SUCCESS]: " + result.text;
             } 
             
         } catch (e) {
-            functions.logger.info(text + " - Fetching DB User")
+            functions.logger.error(text + " - Fetching DB User")
         }
 
-        // square customer 
-        // await updateSquareCustomer(
-        //     data?.first_name as string, 
-        //     data?.email as string, 
-        //     String(data?.stripe?.UUID),
-        //     shipping);
+        if (customer !== null) {
+            const cus = (customer as Customer);
+            const addy = cus?.addresses ? cus?.addresses : []
 
-        // stripe customer 
-        await updateStripeCustomer(
-            data?.first_name as string, 
-            data?.email as string, 
-            String(data?.stripe?.UUID),
-            shipping);
+            customer = { 
+                ...cus,
+                funnel_uuid: funnel_uuid,
+                addresses: [
+                    ...(addy as Address[]),
+                    {...(shipping as Address)}
+                ]
+            }
+        }
+
+        let result = ""
 
         // Calculate bump order
         const price = bump ? (399 + product.price) : product.price;
 
-        // Make initial charge
-        handleStripeCharge(
-            MERCHAND_UUID,
-            String(data?.stripe?.UUID),
-            price,
-            String(data?.email),
-            text,
-            product,
-            shipping,
-            cus_uuid);
+        if (high_risk) {
+            functions.logger.info(" =====> [HIGH RISK]")
+            // TODO: Update sqaure
 
-        try {
-        
-            let TODAY = await getToday();
+            // TODO: Charge sqaure
+        } else {
+            functions.logger.info(" =====> ![HIGH RISK]")
+            // stripe customer 
+            await updateStripeCustomer(
+                customer?.first_name as string, 
+                String(customer?.stripe?.UUID),
+                shipping);
 
-            const result = await getFunnelDocument(MERCHAND_UUID, "analytics", String(TODAY))
-
-            const analytics: DailyFunnel = result.data as DailyFunnel;
-
-            const uopv = analytics.order_page_views ? analytics.order_page_views : 1;
-
-            const update = {
-                ...analytics,
-                order_sales_count: (analytics.order_sales_count + 1),
-                order_sales_rate: ((analytics.order_sales_count + 1) / (uopv)),
-                order_sales_value: (analytics.order_sales_value + Number(product.price)),
-                updated_at: admin.firestore.Timestamp.now()
-            }
-
-            await updateFunnelsDocument(MERCHAND_UUID, "analytics", String(TODAY), update);
-
-        } catch (e) {
-            functions.logger.info("66: " + text + " - Updating analytics ");
+            // Make initial charge
+            result = await handleStripeCharge(
+                customer as Customer,
+                price,
+                product,
+                shipping,
+                high_risk);
         }
-    
+
+        functions.logger.info(" =====> [ANALYTICS UPDATE]");
+        // TODO: UPDATE CHCKOUT ANALYTICS
+        // ? Turn into a listner?
+        // await updateFunnelCheckout(merchant_uuid, funnel_uuid, price);
 
         // return to client
         res.status(status).json({
             text: text,
-            data: {
-                draft_order_uuid: "draftOrder.data,"
-            }
+            ok: ok,
+            data: result
         });
-     });
+    });
+    
 
     app.post("/checkout/success", async (req: express.Request, res: express.Response) => {
         let status = 500,

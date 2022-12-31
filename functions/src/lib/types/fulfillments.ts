@@ -2,6 +2,7 @@ import { Address } from "./addresses";
 import { LastOrder } from "./customers";
 
 export type Fulfillment = {
+    merchant_uuid: string,
     updated_at: FirebaseFirestore.Timestamp;
     created_at: FirebaseFirestore.Timestamp;
     id?: string,

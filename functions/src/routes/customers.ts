@@ -1,10 +1,10 @@
 import * as express from "express";
 import * as functions from "firebase-functions";
-import * as admin from "firebase-admin";
-import { createCustomer } from "../lib/helpers/customers/create";
-import { createDocument, getCollections, getDocument, getFunnelDocument, updateDocument, updateFunnelsDocument } from "../lib/helpers/firestore";
-import { DailyFunnel } from "../lib/types/analytics";
-import { getToday } from "../lib/helpers/date";
+// import * as admin from "firebase-admin";
+import { createCustomerPayment } from "../lib/helpers/customers/create";
+import { createDocument, getCollections, getDocument } from "../lib/helpers/firestore";
+// import { DailyFunnel } from "../lib/types/analytics";
+// import { getToday } from "../lib/helpers/date";
 import { validateKey } from "./auth";
 import { Customer } from "../lib/types/customers";
 // import * as crypto from "crypto";
@@ -19,7 +19,7 @@ export const customerRoute = (
      * 
      */
     app.get("/customers/test", async (req: express.Request, res: express.Response) => {
-        let status = 500, text = "ERROR: Likley internal issue 🤡. ";
+        let status = 500, text = "[ERROR]: Likley internal issue 🤡. ";
         const MERCHAND_UUID = "50rAgweT9PoQKs5u5o7t";
 
         const data = {
@@ -33,115 +33,125 @@ export const customerRoute = (
         res.status(status).json(text);
     });
 
+    /**
+     * Create customer & stripe account, then return client secret
+     */
+    //  app.post("/customers/create/quick", async (req: express.Request, res: express.Response) => {
+    //     let status = 500, text = "";
+
+    //     // Merchant ID
+    //     const MERCHAND_UUID = "50rAgweT9PoQKs5u5o7t";
+
+    //     const funnel_uuid = req.body.funnel_uuid;
+    //     const high_risk = req.body.high_risk;
+    //     // new customer data
+    //     const newSession = req.body.NEW_SESSION;
+
+    //     // Create customer
+    //     let data: {
+    //         id?: string,
+    //         STRIPE_UUID?: string,
+    //         STRIPE_PI_UID?: string, 
+    //         STRIPE_CLIENT_ID?: string
+    //     } | null  = null;
+
+    //     // Create customer
+    //     await createCustomerPayment(MERCHAND_UUID, newSession, funnel_uuid, high_risk);
+
+    //     // return to client
+    //     res.status(status).json({
+    //         text: text,
+    //         data: data,
+    //     });
+    // });
 
     /**
      * Create customer & stripe account, then return client secret
      */
-     app.post("/customers/create/quick", async (req: express.Request, res: express.Response) => {
-        let status = 500, text = "";
+    app.post("/customers/create", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" =====> [CREATE CUSTOMER] - ✅ Started"); 
+        let status = 200,
+            text = "[SUCCESS]: Customer succesffully created",
+            ok = true;
 
-        // Merchant ID
-        const MERCHAND_UUID = "50rAgweT9PoQKs5u5o7t";
-
-        // new customer data
-        const newSession = req.body.NEW_SESSION;
-
+        // if valid
+        const {
+            merchant_uuid,
+            funnel_uuid,
+            high_risk
+        } = req.body;
+        
         // Create customer
-        let data: {
+        let result: {
             id?: string,
             STRIPE_UUID?: string,
             STRIPE_PI_UID?: string, 
             STRIPE_CLIENT_ID?: string
-        } | null  = null;
-
-        // Create customer
-        const result = await createCustomer(MERCHAND_UUID, newSession);
-
-        // check results 
-        if (result.status >= 300) {
-            data = null
-        } else {
-            data = {
-                id: result?.data?.id,
-                STRIPE_UUID: result?.data?.stripe?.UUID,
-                STRIPE_PI_UID: result?.data?.stripe?.PI_UUID, 
-                STRIPE_CLIENT_ID: result?.data?.stripe?.CLIENT_ID
-            }
-
-            // Responses back to the client
-            text = "SUCCESS: Document created & stripe client created.";
-            status = 200;
-
-            try {
-                    
-                let TODAY: Date | string = new Date();  
-                TODAY = TODAY.toString().substring(0,15);
-
-                const FUNNEL_UUID = Math.floor(new Date(TODAY).getTime() / 1000);
-
-                const result = await getFunnelDocument(MERCHAND_UUID, "analytics", String(FUNNEL_UUID))
-
-                const analytics: DailyFunnel = result.data as DailyFunnel;
-
-
-                const opv = analytics.order_page_views > 0 ? analytics.order_page_views : 1;
-                const uopv = analytics.order_unique_page_views > 0 ? analytics.order_unique_page_views : 1;
-
-                const update = {
-                    ...result.data,
-                    order_opt_in_rate: ((analytics.order_opt_ins) / (uopv)),
-                    order_sales_rate: ((analytics.order_sales_count) / (uopv)),
-                    order_earnings: (analytics.order_sales_value) / (opv),
-                    order_earnings_unique: (analytics.order_sales_value) / (uopv),
-                    upsell_earnings: (analytics.upsell_sales_value) / (opv),
-                    upsell_earnings_unique: (analytics.upsell_sales_value) / (uopv),
-                    updated_at: admin.firestore.Timestamp.now()
-                }
-
-                await updateFunnelsDocument(MERCHAND_UUID, "analytics", String(FUNNEL_UUID), update);
-
-
-            } catch (e) {
-                functions.logger.info("139: " + text + " - Updating analytics ");
-            }
-        }
-
-        // return to client
-        res.status(status).json({
-            text: text,
-            data: data,
-        });
-    });
-
-    app.post("/customers/create", validateKey, async (req: express.Request, res: express.Response) => {
-        functions.logger.debug(" ====> Customer Created Route Started");
-        let status = 200,
-            text = "SUCCESS: Customer succesffully created",
-            result: string = "",
-            ok = true;
-
-        // if valid
-        const merchant_uuid = req.body.merchant_uuid;
+        } = {};
 
         // Customer Data
-        const customer: Customer = req.body.customer;
+        let customer: Customer = req.body.customer;
 
         // TODO: Sanatize scopes && data
-
         try {
 
-            const response = await createDocument(merchant_uuid, "customers", "cus_", customer);
+            // Create customer
+            const response = await createCustomerPayment(merchant_uuid, funnel_uuid, customer, high_risk);
+            functions.logger.debug(" ====> [CREATE RESPONSE] - Payment");
+            console.log(response?.customers)
 
-            if (response.status < 300 && response.data) {
-                result = response.data.id;
+            if (response?.status < 300 && response?.customers) {
+                result = {
+                    ...result,
+                    id: response?.customers?.cus_uuid ? response.customers.cus_uuid : response.customers.id ? response.customers.id : "",
+                    STRIPE_UUID: response?.customers?.stripe?.UUID ? response?.customers?.stripe?.UUID  : "",
+                    STRIPE_PI_UID: response?.customers?.stripe?.PI_UUID ? response?.customers?.stripe?.PI_UUID  : "", 
+                    STRIPE_CLIENT_ID: response?.customers?.stripe?.CLIENT_ID ? response?.customers?.stripe?.CLIENT_ID : ""
+                };
+
+                customer = {
+                    ...customer,
+                    ...response.customers,
+                    merchant_uuid: merchant_uuid,
+                    funnel_uuid: funnel_uuid
+                }
             }
             
         } catch (e) {
-            text = "ERROR: Likely a problem creating a customer";
+            text = "[ERROR]: Likely a problem creating a customer.";
             status = 500;
             ok = false;
             functions.logger.error(text);
             throw new Error(text);
+        }
+        
+        try {
+
+            if (funnel_uuid && funnel_uuid !== "") {
+                functions.logger.debug(" ====> [FUNNEL ID] - Update Analytics");
+            
+                // let TODAY = await getToday();
+    
+                // const result = await getFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY))
+    
+                // const analytics: DailyFunnel | null=  result.data ? result.data as DailyFunnel : null;
+    
+                // if (analytics) {
+                //     const update = {
+                //         ...result.data,
+                //         order_opt_ins: (analytics.order_opt_ins + 1),
+                //         order_opt_in_rate: ((analytics.order_opt_ins + 1) / (analytics.order_page_views)),
+                //         updated_at: admin.firestore.Timestamp.now()
+                //     }
+                //     await updateFunnelsDocument(merchant_uuid, "analytics", String(TODAY), update);
+        
+                // }
+            } else {
+                // TODO: Update store analytics
+            }
+
+        } catch (e) {
+            functions.logger.info("168: [ERROR] - Updating analytics ");
         }
 
         res.status(status).json({
@@ -151,6 +161,9 @@ export const customerRoute = (
         })
     });
 
+    /**
+     * Search & return users: 
+     */
     app.post("/customers", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ====> Customer Created Route Started");
         let status = 200,
@@ -202,69 +215,69 @@ export const customerRoute = (
     });
 
     /**
-     * Update user infomration (opting in with email)
+     *  Update user infomration (opting in with email)
      */
-     app.post("/customers/opt-in", async (req: express.Request, res: express.Response) => {
-        let status = 500, text = "ERROR: Likey internal problems 🤷🏻‍♂️. ", data = false;
+    //  app.post("/customers/opt-in", async (req: express.Request, res: express.Response) => {
+    //     let status = 500, text = "ERROR: Likey internal problems 🤷🏻‍♂️. ", data = false;
 
-        // Merchant ID
-        const MERCHAND_UUID = "50rAgweT9PoQKs5u5o7t";
+    //     // Merchant ID
+    //     const MERCHAND_UUID = "50rAgweT9PoQKs5u5o7t";
 
-        // customer uuid
-        const cus_uuid = req.body.cus_uuid;
+    //     // customer uuid
+    //     const cus_uuid = req.body.cus_uuid;
 
-        // new customer data
-        const new_data = req.body.new_data;
+    //     // new customer data
+    //     const new_data = req.body.new_data;
 
-        functions.logger.info(new_data);
-        functions.logger.info(cus_uuid);
-        try {
+    //     functions.logger.info(new_data);
+    //     functions.logger.info(cus_uuid);
+    //     try {
 
-            // update customer document from main DB
-            const result = await updateDocument(MERCHAND_UUID, "customers", cus_uuid, {
-                ...new_data,
-                updated_at: admin.firestore.Timestamp.now()
-            });
+    //         // update customer document from main DB
+    //         const result = await updateDocument(MERCHAND_UUID, "customers", cus_uuid, {
+    //             ...new_data,
+    //             updated_at: admin.firestore.Timestamp.now()
+    //         });
 
-            if (result.status < 300) {
-                data = true;
-                status = 200;
-                text = "SUCCESS: " + result.text
-            } 
+    //         if (result.status < 300) {
+    //             data = true;
+    //             status = 200;
+    //             text = "SUCCESS: " + result.text
+    //         } 
             
-        } catch (e) {
-            functions.logger.error(text)
-        }
+    //     } catch (e) {
+    //         functions.logger.error(text)
+    //     }
 
 
-        try {
+    //     try {
             
-            let TODAY = await getToday();
+    //         let TODAY = await getToday();
 
-            const result = await getFunnelDocument(MERCHAND_UUID, "analytics", String(TODAY))
+    //         const result = await getFunnelDocument(MERCHAND_UUID, "analytics", String(TODAY))
 
-            const analytics: DailyFunnel = result.data as DailyFunnel;
+    //         const analytics: DailyFunnel = result.data as DailyFunnel;
 
-            const update = {
-                ...result.data,
-                order_opt_ins: (analytics.order_opt_ins + 1),
-                order_opt_in_rate: ((analytics.order_opt_ins + 1) / (analytics.order_page_views)),
-                updated_at: admin.firestore.Timestamp.now()
-            }
+    //         const update = {
+    //             ...result.data,
+    //             order_opt_ins: (analytics.order_opt_ins + 1),
+    //             order_opt_in_rate: ((analytics.order_opt_ins + 1) / (analytics.order_page_views)),
+    //             updated_at: admin.firestore.Timestamp.now()
+    //         }
 
-            await updateFunnelsDocument(MERCHAND_UUID, "analytics", String(TODAY), update);
-
-
-        } catch (e) {
-            functions.logger.info("66: " + text + " - Updating analytics ");
-        }
+    //         await updateFunnelsDocument(MERCHAND_UUID, "analytics", String(TODAY), update);
 
 
-        // return to client
-        res.status(status).json({
-            text: text,
-            data: data,
-        });
-    });
+    //     } catch (e) {
+    //         functions.logger.info("66: " + text + " - Updating analytics ");
+    //     }
+
+
+    //     // return to client
+    //     res.status(status).json({
+    //         text: text,
+    //         data: data,
+    //     });
+    // });
 
 }

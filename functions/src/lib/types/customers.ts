@@ -27,6 +27,8 @@ export interface NewSession {
 }
 
 export interface Customer {
+    subscriptions: string[],
+    merchant_uuid: string,
     id: string,
     first_name: string,
     last_name: string,
@@ -46,15 +48,23 @@ export interface Customer {
         UUID: string,
         PI_UUID: string, 
         CLIENT_ID: string,
-        PM: string
+        PM?: string
+    },
+    square?: {
+        UUID: string,
+        PI_UUID: string,
+        CARD_UUID: string,
+        CLIENT_ID: string,
     },
     created_at?: FirebaseFirestore.Timestamp,
     updated_at: FirebaseFirestore.Timestamp,
     line_items?: LineItem,
     addresses: Address[],
     orders: string[],
-    draft_orders: string[],
-    shopify_uuid: string
+    draft_orders: string,
+    shopify_uuid: string,
+    funnel_uuid: string,
+    funnels: string[]
 }
 
 export type LastOrder = {

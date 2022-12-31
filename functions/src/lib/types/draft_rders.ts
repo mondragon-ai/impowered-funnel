@@ -19,6 +19,7 @@ export interface LineItem {
 }
 
 export interface DraftOrder {
+    order_number: string,
     high_risk: boolean,
     line_items: LineItem[],
     updated_at: FirebaseFirestore.Timestamp,
@@ -47,11 +48,14 @@ export interface DraftOrder {
     fullfillment_status?: "PRINTED" | "SENT" | "TRANSIT" | "HOLD" | "DELIVERED" | "LOST",
     payment_status?: "PAID" | "UNPAID",
     transaction_id: string,
-    store_type?: "SHOPIFY" | "IMPOWERED" | ""
+    store_type?: "SHOPIFY" | "IMPOWERED" | "",
+    merchant_uuid: string,
+    funnel_uuid: string
 }
 
 export interface Order {
-    order_name: string,
+    funnel_uuid: string
+    merchant_uuid: string,
     high_risk: boolean,
     line_items: LineItem[],
     updated_at: FirebaseFirestore.Timestamp,
