@@ -1,4 +1,4 @@
-import { Analytics, DailyFunnel, FunnelAnalytics, TopSellers } from "../../types/analytics";
+import { Analytics, FunnelAnalytics, TopSellers } from "../../types/analytics";
 import { LineItem } from "../../types/draft_rders";
 
 import * as admin from "firebase-admin";
@@ -9,8 +9,8 @@ import { getToday } from "../date";
 import { Funnel } from "../../types/funnels";
 
 export const updateAnalyticsOnOrderSuccess = async (
-    store_data: FirebaseFirestore.DocumentData | null,
-    funnel_data: FirebaseFirestore.DocumentData | null,
+    store_data: Analytics | null,
+    funnel_data: FunnelAnalytics | null,
     current_total_price: number,
     line_items: LineItem[],
     TODAY: string,
@@ -18,14 +18,13 @@ export const updateAnalyticsOnOrderSuccess = async (
     MERCHANT_UUID: string,
 ) => {
 
-    const funnel = await getDocument(MERCHANT_UUID, "funnels", funnel_uuid);
-
-    if (funnel.status > 300 && !funnel.data) functions.logger.info(" > 🚨 [ERROR] Fetching Funnel Document");
+    const funnel = funnel_data !== null ? funnel_data as FunnelAnalytics : null;
     
 
     functions.logger.info("-------- [IDS] 👇🏻");
     functions.logger.info(MERCHANT_UUID);
     functions.logger.info(TODAY);
+    functions.logger.info(funnel_data);
 
     if (store_data !== null) {
         functions.logger.info(" ===> [STORE UPDATE] - Analytics");
@@ -44,11 +43,9 @@ export const updateAnalyticsOnOrderSuccess = async (
 
         line_items.forEach((li, i) => {
 
-            console.log(li);
 
             if (top_sellers.length > 0) {
                 top_sellers.forEach((item) => {
-                    console.log(item);
                     if (li.title == item.title) {
                         list = [
                             ...list,
@@ -70,9 +67,6 @@ export const updateAnalyticsOnOrderSuccess = async (
             }
 
         });
-
-        console.log("76: LIST ==> ");
-        functions.logger.info(list);
 
         await updateDocument(MERCHANT_UUID, "analytics", TODAY, {
             ...store_data,
@@ -148,27 +142,17 @@ export const updateAnalyticsOnOrderSuccess = async (
         functions.logger.info(" ====> [FUNNEL UPDATE!]");
 
         const {
-            order_page_views,
-            order_unique_page_views,
-            total_funnel_sales,
-            total_funnel_orders,
-            order_sales_value,
-            upsell_sales_value
-        } = funnel_data as DailyFunnel;
+            total_sales,
+            total_orders,
+        } = funnel_data as Funnel;
 
-        const opv = order_page_views > 0 ? order_page_views : 1;
-        const uopv = order_unique_page_views > 0 ? order_unique_page_views : 1;
-
-        const total = total_funnel_sales !== 0 ? (total_funnel_sales) : (order_sales_value + upsell_sales_value);
-
-        const f = funnel.data as Funnel
-
+        const total = total_sales !== 0 ? (total_sales) : 0;
 
         let analytics = {
             total_funnel_orders: total,
-            total_funnel_sales: total_funnel_orders + 1,
-            total_funnel_aov: (total) / (total_funnel_orders + 1),
-            steps: f?.steps ? f?.steps.map(step => {
+            total_funnel_sales: total_orders ? (total_orders + 1) :1,
+            total_funnel_aov: (total) / (total_orders ? (total_orders + 1) : 1),
+            steps: funnel?.steps ? funnel?.steps.map(step => {
                 if (step.name === "OPT_IN") {
                     return (
                         {
@@ -182,8 +166,8 @@ export const updateAnalyticsOnOrderSuccess = async (
                             sales_value: 0,
                             recurring_count: 0,
                             recurring_value: 0,
-                            earnings: (order_sales_value) / (opv),
-                            earnings_unique: (order_sales_value) / (uopv),
+                            earnings: (step.sales_value ? step.sales_value : 0) / (step.page_views > 0 ? step.page_views : 1),
+                            earnings_unique: (step.sales_value ? step.sales_value : 0) / (step.page_views > 0 ? step.page_views : 1),
                         }
                     )
                 }
@@ -200,8 +184,8 @@ export const updateAnalyticsOnOrderSuccess = async (
                             sales_value: 0,
                             recurring_count: 0,
                             recurring_value: 0,
-                            earnings: (upsell_sales_value) / (opv),
-                            earnings_unique: (upsell_sales_value) / (uopv),
+                            earnings: (step.sales_value ? step.sales_value : 0) / (step.page_views > 0 ? step.page_views : 1),
+                            earnings_unique: (step.sales_value ? step.sales_value : 0) / (step.unique_page_views > 0 ? step.unique_page_views : 1),
                         }
                     )
                 } 
@@ -217,14 +201,11 @@ export const updateAnalyticsOnOrderSuccess = async (
 
         if (funnel_uuid !== "") {
 
-            const f = funnel.data as Funnel
-
-
             let analytics = {
                 total_funnel_orders: 1,
                 total_funnel_sales: current_total_price,
                 total_funnel_aov: current_total_price,
-                steps: f?.steps ? f?.steps.map(step => {
+                steps: funnel?.steps ? funnel?.steps.map(step => {
                     return (
                         {
                             name: step.name,
@@ -259,6 +240,7 @@ export const updateFunnelCheckout = async (
     price: number
 ) => {
 
+    functions.logger.info("-------- [ANALYTICS] - Update Checkout");
     let funnel: Funnel = {} as Funnel
     try {
 
@@ -347,6 +329,7 @@ export const updateFunnelSubPurchase = async (
     price: number
 ) => {
 
+    functions.logger.info("-------- [ANALYTICS] - Update Subs");
     let funnel: Funnel = {} as Funnel
     try {
 

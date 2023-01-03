@@ -6,6 +6,7 @@ import { getToday } from "../lib/helpers/date";
 import { createDocument, fetchFunnelAnalytics, getDocument, updateDocument } from "../lib/helpers/firestore";
 import { Customer } from "../lib/types/customers";
 import { Order } from "../lib/types/draft_rders";
+import { FunnelAnalytics, Analytics } from "../lib/types/analytics";
 // import { SubscriptionAgreement} from "../lib/types/products";
 // import { Fulfillment } from "../lib/types/fulfillments";
 
@@ -236,8 +237,8 @@ export const orderCreated = functions.firestore
 
     // 
     await updateAnalyticsOnOrderSuccess(
-        store_analytics as FirebaseFirestore.DocumentData,
-        funnnel_analytics as FirebaseFirestore.DocumentData,
+        store_analytics as Analytics,
+        funnnel_analytics as FunnelAnalytics,
         current_total_price,
         line_items,
         String(TODAY),
