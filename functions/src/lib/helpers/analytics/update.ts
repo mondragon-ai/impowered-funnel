@@ -1,34 +1,35 @@
-import { Analytics, DailyFunnel, TopSellers } from "../../types/analytics";
+import { Analytics, DailyFunnel, FunnelAnalytics, TopSellers } from "../../types/analytics";
 import { LineItem } from "../../types/draft_rders";
 
 import * as admin from "firebase-admin";
+import * as crypto from "crypto";
 import * as functions from "firebase-functions";
-import { getFunnelAnalytics, updateDocument, updateFunnelsDocument } from "../firestore";
+import { createDocumentWthId, createFunnelAnalytics, fetchFunnelAnalytics, getDocument, updateDocument, updateFunnelAnalytics } from "../firestore";
 import { getToday } from "../date";
+import { Funnel } from "../../types/funnels";
 
 export const updateAnalyticsOnOrderSuccess = async (
-    store_status: number,
-    funnel_status: number,
-    store_data: FirebaseFirestore.DocumentData | undefined,
-    funnel_data: FirebaseFirestore.DocumentData | undefined,
+    store_data: FirebaseFirestore.DocumentData | null,
+    funnel_data: FirebaseFirestore.DocumentData | null,
     current_total_price: number,
     line_items: LineItem[],
     TODAY: string,
-    is_funnel: boolean,
+    funnel_uuid: string,
     MERCHANT_UUID: string,
 ) => {
 
-    functions.logger.info("LINE ITEMS");
-    functions.logger.info(line_items);
+    const funnel = await getDocument(MERCHANT_UUID, "funnels", funnel_uuid);
 
+    if (funnel.status > 300 && !funnel.data) functions.logger.info(" > 🚨 [ERROR] Fetching Funnel Document");
+    
 
-    functions.logger.info("IDS");
+    functions.logger.info("-------- [IDS] 👇🏻");
     functions.logger.info(MERCHANT_UUID);
     functions.logger.info(TODAY);
 
-    if (store_status < 300 && store_data != undefined) {
-        functions.logger.info("STORE UPDATE!");
-        functions.logger.info(store_data);
+    if (store_data !== null) {
+        functions.logger.info(" ===> [STORE UPDATE] - Analytics");
+
         const {
             total_daily_orders,
             total_daily_sales,
@@ -83,41 +84,172 @@ export const updateAnalyticsOnOrderSuccess = async (
             updated_at: admin.firestore.Timestamp.now()
         });
 
+    } else {
+
+        let list: TopSellers[] = [];
+
+        line_items.forEach((li, i) => {
+
+            list = [
+                ...list,
+                {
+                    title: li.title,
+                    total_orders: 1,
+                } 
+            ];
+
+        });
+
+        let TODAY = getToday();
+    
+        // data to be used to create new doc
+        const data = {
+          total_orders: 0,
+          total_aov: 0,
+          total_revenue: 0,
+          total_sessions: 0,
+          total_carts: 0,
+          total_checkouts: 0,
+          updated_at: admin.firestore.Timestamp.now(),
+          created_at: admin.firestore.Timestamp.now(),
+          prev_daily_sessions: 0,
+          total_daily_sessions: 0,
+          daily_sessions_rate: 0,
+          prev_daily_new_sessions: 0,
+          total_daily_new_sessions: 0,
+          daily_new_sessions_rate: 0,
+          prev_daily_sales: 0,
+          total_daily_sales: current_total_price,
+          daily_sales_rate: 0,
+          prev_daily_carts: 0,
+          total_daily_carts: 0,
+          daily_carts_rate: 0,
+          prev_daily_checkouts: 0,
+          prev_daily_aov: current_total_price,
+          total_daily_checkouts: 1,
+          total_daily_orders: 0,
+          total_funnel_sales: 0,
+          total_funnel_orders: 0,
+          total_online_sales: 0,
+          total_online_orders: 0,
+          daily_aov: 0,
+          daily_order_rate: 0,
+          daily_cart_rate: 0,
+          daily_checkout_rate: 0,
+          top_sellers: list,
+          id: "dai_" + crypto.randomBytes(10),
+        }
+    
+        // creat new analytics doc
+        await createDocumentWthId(MERCHANT_UUID, "analytics", String(TODAY), data);
+    }
+
+    if (funnel_data !== null && funnel_uuid !== "") {
+        functions.logger.info(" ====> [FUNNEL UPDATE!]");
+
+        const {
+            order_page_views,
+            order_unique_page_views,
+            total_funnel_sales,
+            total_funnel_orders,
+            order_sales_value,
+            upsell_sales_value
+        } = funnel_data as DailyFunnel;
+
+        const opv = order_page_views > 0 ? order_page_views : 1;
+        const uopv = order_unique_page_views > 0 ? order_unique_page_views : 1;
+
+        const total = total_funnel_sales !== 0 ? (total_funnel_sales) : (order_sales_value + upsell_sales_value);
+
+        const f = funnel.data as Funnel
+
+
+        let analytics = {
+            total_funnel_orders: total,
+            total_funnel_sales: total_funnel_orders + 1,
+            total_funnel_aov: (total) / (total_funnel_orders + 1),
+            steps: f?.steps ? f?.steps.map(step => {
+                if (step.name === "OPT_IN") {
+                    return (
+                        {
+                            name: step.name,
+                            page_views: 0,
+                            unique_page_views: 0,
+                            opt_ins: 0,
+                            opt_in_rate: 0,
+                            sales_count: 0,
+                            sales_rate: 0,
+                            sales_value: 0,
+                            recurring_count: 0,
+                            recurring_value: 0,
+                            earnings: (order_sales_value) / (opv),
+                            earnings_unique: (order_sales_value) / (uopv),
+                        }
+                    )
+                }
+                if (step.name === " UPSELL") {
+                    return (
+                        {
+                            name: step.name,
+                            page_views: 0,
+                            unique_page_views: 0,
+                            opt_ins: 0,
+                            opt_in_rate: 0,
+                            sales_count: 0,
+                            sales_rate: 0,
+                            sales_value: 0,
+                            recurring_count: 0,
+                            recurring_value: 0,
+                            earnings: (upsell_sales_value) / (opv),
+                            earnings_unique: (upsell_sales_value) / (uopv),
+                        }
+                    )
+                } 
+                else  { return }
+            }) : [],
+            updated_at: admin.firestore.Timestamp.now(),
+            created_at: admin.firestore.Timestamp.now(),
+        } as any
         
-        if (funnel_status < 300 && funnel_data != undefined) {
-            functions.logger.info("FUNNEL UPDATE!");
-            functions.logger.info(funnel_data);
+        await updateFunnelAnalytics(MERCHANT_UUID, funnel_uuid, TODAY, analytics);
 
-            const {
-                order_page_views,
-                order_unique_page_views,
-                total_funnel_sales,
-                total_funnel_orders,
-                order_sales_value,
-                upsell_sales_value
-            } = funnel_data as DailyFunnel;
+    }  else {
 
-            const opv = order_page_views > 0 ? order_page_views : 1;
-            const uopv = order_unique_page_views > 0 ? order_unique_page_views : 1;
+        if (funnel_uuid !== "") {
 
-            const total = total_funnel_sales !== 0 ? (total_funnel_sales) : (order_sales_value + upsell_sales_value);
+            const f = funnel.data as Funnel
 
-            if (is_funnel) {
-                await updateFunnelsDocument(MERCHANT_UUID, "analytics", TODAY, {
-                    ...funnel_data,
-                    updated_at: admin.firestore.Timestamp.now(),
-                    total_funnel_sales: upsell_sales_value + order_sales_value,
-                    total_funnel_orders: total_funnel_orders + 1,
-                    total_funnel_aov: (total) / (total_funnel_orders + 1),
-                    order_earnings: (order_sales_value) / (opv),
-                    order_earnings_unique: (order_sales_value) / (uopv),
-                    upsell_earnings: (upsell_sales_value) / (opv),
-                    upsell_earnings_unique: (upsell_sales_value) / (uopv),
-                });
-            }
-        }    
 
-        
+            let analytics = {
+                total_funnel_orders: 1,
+                total_funnel_sales: current_total_price,
+                total_funnel_aov: current_total_price,
+                steps: f?.steps ? f?.steps.map(step => {
+                    return (
+                        {
+                            name: step.name,
+                            page_views: 0,
+                            unique_page_views: 0,
+                            opt_ins: 0,
+                            opt_in_rate: 0,
+                            sales_count: 0,
+                            sales_rate: 0,
+                            sales_value: 0,
+                            recurring_count: 0,
+                            recurring_value: 0,
+                            earnings: current_total_price,
+                            earnings_unique: current_total_price,
+                        }
+                    )
+                }) : [],
+                updated_at: admin.firestore.Timestamp.now(),
+                created_at: admin.firestore.Timestamp.now(),
+            } as any
+            
+            // creat new funnnel_analytics doc
+            await createFunnelAnalytics(MERCHANT_UUID, funnel_uuid, TODAY, analytics);
+        }
+
     }
 }
 
@@ -127,27 +259,81 @@ export const updateFunnelCheckout = async (
     price: number
 ) => {
 
+    let funnel: Funnel = {} as Funnel
+    try {
+
+        const response = await getDocument(merchant_uuid, "funnels", funnel_uuid);
+
+        if (response.status < 300 && response.data) {
+            funnel = response.data as Funnel;
+        }
+        
+    } catch (error) {
+        
+    }
+
     try {
 
         if (funnel_uuid && funnel_uuid !== "") {
         
             let TODAY = await getToday();
 
-            const result = await getFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY))
+            const result = await fetchFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY))
 
-            const analytics: DailyFunnel = result.data as DailyFunnel;
+            const analytics: FunnelAnalytics = result.data as FunnelAnalytics;
+    
+            if (analytics !== null) {
+                const update = {
+                    ...analytics,
+                    steps: analytics.steps ? analytics?.steps.map(step => {
+                        if (step.name === "OPT_IN") {
+                            return {
+                                sales_count: (step.sales_count ? step.sales_count + 1 : 1),
+                                sales_rate: ((step.sales_count ? step.sales_count + 1 : 1) / (step.page_views ? step.page_views : 1)),
+                                sales_value: (step.sales_value ? step.sales_count + price : price),
+                            }
+                        } 
+                        return step
+                    }) : [],
+                    updated_at: admin.firestore.Timestamp.now()
+                } as FunnelAnalytics;
 
-            const uopv = analytics.order_page_views ? analytics.order_page_views : 1;
+                await updateFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY), update);
+            } else {
 
-            const update = {
-                ...analytics,
-                order_sales_count: (analytics.order_sales_count + 1),
-                order_sales_rate: ((analytics.order_sales_count + 1) / (uopv)),
-                order_sales_value: (analytics.order_sales_value + price),
-                updated_at: admin.firestore.Timestamp.now()
+
+                let analytics = {
+                    total_funnel_orders: 1,
+                    total_funnel_sales: price,
+                    total_funnel_aov: price,
+                    steps: funnel?.steps ? funnel?.steps.map((step, i) => {
+                        return (
+                            {
+                                name: step.name,
+                                page_views: 0,
+                                unique_page_views: 0,
+                                opt_ins: 0,
+                                opt_in_rate: 0,
+                                sales_count: 1,
+                                sales_rate: 1,
+                                sales_value: price,
+                                recurring_count: 0,
+                                recurring_value: 0,
+                                earnings: price,
+                                earnings_unique: price,
+                                painted: false,
+                                order: i ? (i + 1) : 1,
+                            }
+                        )
+                    }) : [],
+                    updated_at: admin.firestore.Timestamp.now(),
+                    created_at: admin.firestore.Timestamp.now(),
+                } as any
+                
+                // creat new funnnel_analytics doc
+                await createFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY), analytics);
+                
             }
-
-            await updateFunnelsDocument(merchant_uuid, "analytics", String(TODAY), update);
         } 
 
     } catch (e) {
@@ -161,6 +347,19 @@ export const updateFunnelSubPurchase = async (
     price: number
 ) => {
 
+    let funnel: Funnel = {} as Funnel
+    try {
+
+        const response = await getDocument(merchant_uuid, "funnels", funnel_uuid);
+
+        if (response.status < 300 && response.data) {
+            funnel = response.data as Funnel;
+        }
+        
+    } catch (error) {
+        
+    }
+
     try {
 
         if (funnel_uuid && funnel_uuid !== "") {
@@ -169,36 +368,69 @@ export const updateFunnelSubPurchase = async (
             const TODAY = await getToday();
     
             // Fetch Funnel Data
-            const result = await getFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY))
+            const result = await fetchFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY))
+
+            const analytics: FunnelAnalytics = result.data as FunnelAnalytics;
     
-            // Set data
-            const analytics: DailyFunnel = result.data ? result.data  as DailyFunnel : {}  as DailyFunnel;
+            if (analytics !== null) {
+                const update = {
+                    ...analytics,
+                    steps: analytics.steps ? analytics?.steps.map(step => {
+                        if (step.name === " UPSELL") {
+                            return {
+                                sales_count: (step.sales_count ? step.sales_count + 1 : 1),
+                                sales_rate: ((step.sales_count ? step.sales_count + 1 : 1) / (step.unique_page_views ? step.unique_page_views : 1)),
+                                sales_value: (step.sales_value ? step.sales_count + price : price),
+                                recurring_count: (step.recurring_count ? step.recurring_count + 1 : 1),
+                                recurring_value: (step.recurring_value ? step.recurring_value + price : price),
+                            }
+                        } 
+                        return step
+                    }) : [],
+                    updated_at: admin.firestore.Timestamp.now()
+                } as FunnelAnalytics;
+
+                await updateFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY), update);
+            } else {
+
+
+                let analytics = {
+                    total_funnel_orders: 1,
+                    total_funnel_sales: price,
+                    total_funnel_aov: price,
+                    steps: funnel?.steps ? funnel?.steps.map((step, i) => {
+                        return (
+                            {
+                                name: step.name,
+                                page_views: 0,
+                                unique_page_views: 0,
+                                opt_ins: 0,
+                                opt_in_rate: 0,
+                                sales_count: 0,
+                                sales_rate: 0,
+                                sales_value: 0,
+                                recurring_count: 0,
+                                recurring_value: 0,
+                                earnings: price,
+                                earnings_unique: price,
+                                painted: false,
+                                order: i ? (i + 1) : 1,
+                            }
+                        )
+                    }) : [],
+                    updated_at: admin.firestore.Timestamp.now(),
+                    created_at: admin.firestore.Timestamp.now(),
+                } as any
+                
+                // creat new funnnel_analytics doc
+                await createFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY), analytics);
+                
+            }
      
-            // Logging
-            functions.logger.info(" => [ANALYTICS] - Quick Sub");
-    
-            const { 
-              upsell_sales_count,
-              upsell_sales_value,
-              upsell_unique_page_views,
-              upsell_recurring_count
-            } = analytics;
-        
-            // set unique views
-            const uupv = upsell_unique_page_views > 0 ? upsell_unique_page_views : 1;
-        
-            // Update FB Doc 
-            await updateFunnelsDocument(merchant_uuid, "analytics", String(TODAY), {
-              updated_at: admin.firestore.Timestamp.now(),
-              upsell_sales_count: (upsell_sales_count + 1),
-              upsell_sales_value: (upsell_sales_value + price),
-              upsell_sales_rate: ((upsell_sales_count + 1) / (uupv)),
-              upsell_recurring_count: (upsell_recurring_count + 1) ,
-              upsell_recurring_value: (upsell_sales_value + price)
-            } as DailyFunnel);
         } else { 
             // TODO: Update store analytics? 
         }
+
     } catch (e) {
         throw new Error("[ERROR]: Likely due to updating analytics");
         

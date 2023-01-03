@@ -6,6 +6,47 @@ import * as functions from "firebase-functions";
 
 
 
+export const fetchFunnelAnalytics = async (
+    merchant_uuid: string,
+    doc_uuid: string,
+    today: string,
+) => {
+    // Data for validation in parent
+    let text = "SUCCESS: Document fetched 👍🏻", status = 200;
+
+    let result = null; 
+
+    try {
+        const response = await db
+        .collection("merchants")
+        .doc(merchant_uuid)
+        .collection("funnels")
+        .doc(doc_uuid)
+        .collection("analytics")
+        .doc(today)
+        .get()
+
+        if (response.exists) {
+            result = response.data();
+        } else {
+            text = " - getting session document.";
+            status = 400;
+        }
+        
+    } catch {
+        text = " - Could not fetch document.";
+        status = 400;
+    }
+
+    // return either result 
+    return {
+        text: text,
+        status: status,
+        data: result ? result : null
+    }
+}
+
+
 export const createFunnelAnalytics = async (
     merchant_uuid: string,
     doc_uuid: string,
@@ -46,12 +87,47 @@ export const createFunnelAnalytics = async (
 }
 
 
+export const updateFunnelAnalytics = async (
+    merchant_uuid: string,
+    doc_uuid: string,
+    today: string,
+    data: any,
+) => {
+    // Data for validation in parent
+    let text = "[SUCCESS]: Document Created 👍🏻", status = 200, updated = true
+
+    try {
+        await db
+        .collection("merchants")
+        .doc(merchant_uuid)
+        .collection("funnels")
+        .doc(doc_uuid)
+        .collection("analytics")
+        .doc(today)
+        .set({
+            ...data,
+            id: doc_uuid
+        });
+    } catch {
+        text = " - Could not create document.";
+        status = 400;
+    }
+
+    // return either result 
+    return {
+        text: text,
+        status: status,
+        data: updated
+    }
+}
+
+
 export const updateSessions = async (
     api_key: string,
     data: any,
 ) => {
     // Data for validation in parent
-    let text = "SUCCESS: Document Created 👍🏻", status = 200, updated = true;
+    let text = "[SUCCESS]: Document Created 👍🏻", status = 200, updated = true;
 
     try {
         await db

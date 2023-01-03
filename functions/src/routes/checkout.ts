@@ -5,7 +5,7 @@ import { Customer } from "../lib/types/customers";
 import { handleStripeCharge, updateStripeCustomer } from "../lib/helpers/stripe";
 import { DraftOrder } from "../lib/types/draft_rders";
 import { validateKey } from "./auth";
-// import { updateFunnelCheckout } from "../lib/helpers/analytics/update";
+import { updateFunnelCheckout } from "../lib/helpers/analytics/update";
 import { Address } from "../lib/types/addresses";
 
 export const checkoutRoutes = (app: express.Router) => {
@@ -92,7 +92,7 @@ export const checkoutRoutes = (app: express.Router) => {
         functions.logger.info(" =====> [ANALYTICS UPDATE]");
         // TODO: UPDATE CHCKOUT ANALYTICS
         // ? Turn into a listner?
-        // await updateFunnelCheckout(merchant_uuid, funnel_uuid, price);
+        await updateFunnelCheckout(merchant_uuid, funnel_uuid, price);
 
         // return to client
         res.status(status).json({

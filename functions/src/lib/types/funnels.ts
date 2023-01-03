@@ -11,3 +11,4 @@ export type Funnel = {
     total_earnings: number, 
     tags: string[]
 }
+

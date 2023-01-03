@@ -1,12 +1,13 @@
 import * as express from "express";
 import * as functions from "firebase-functions";
-// import * as admin from "firebase-admin";
+import * as admin from "firebase-admin"; 
 import { createCustomerPayment } from "../lib/helpers/customers/create";
-import { createDocument, getCollections, getDocument } from "../lib/helpers/firestore";
-// import { DailyFunnel } from "../lib/types/analytics";
-// import { getToday } from "../lib/helpers/date";
+import { createDocument, createFunnelAnalytics, fetchFunnelAnalytics, getCollections, getDocument, updateFunnelAnalytics } from "../lib/helpers/firestore";
+import { FunnelAnalytics } from "../lib/types/analytics";
+import { getToday } from "../lib/helpers/date";
 import { validateKey } from "./auth";
 import { Customer } from "../lib/types/customers";
+import { Funnel } from "../lib/types/funnels";
 // import * as crypto from "crypto";
 
 export const customerRoute = (
@@ -130,22 +131,70 @@ export const customerRoute = (
             if (funnel_uuid && funnel_uuid !== "") {
                 functions.logger.debug(" ====> [FUNNEL ID] - Update Analytics");
             
-                // let TODAY = await getToday();
+                let TODAY = await getToday();
     
-                // const result = await getFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY))
+                const result = await fetchFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY))
     
-                // const analytics: DailyFunnel | null=  result.data ? result.data as DailyFunnel : null;
+                const analytics: FunnelAnalytics | null =  result.data ? result.data as FunnelAnalytics : null;
     
-                // if (analytics) {
-                //     const update = {
-                //         ...result.data,
-                //         order_opt_ins: (analytics.order_opt_ins + 1),
-                //         order_opt_in_rate: ((analytics.order_opt_ins + 1) / (analytics.order_page_views)),
-                //         updated_at: admin.firestore.Timestamp.now()
-                //     }
-                //     await updateFunnelsDocument(merchant_uuid, "analytics", String(TODAY), update);
+                if (analytics !== null) {
+                    const update = {
+                        ...analytics,
+                        steps: analytics.steps ? analytics?.steps.map(step => {
+                            if (step.name === "OPT_IN") {
+                                return {
+                                    order_opt_ins: (step.opt_ins + 1),
+                                    order_opt_in_rate: ((step.opt_ins ? step.opt_ins + 1 : 1) / (step.page_views ? step.page_views : 1)),
+                                }
+                            } 
+                            return step
+                        }) : [],
+                        updated_at: admin.firestore.Timestamp.now()
+                    } as FunnelAnalytics;
+                    await updateFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY), update);
         
-                // }
+                } else {
+
+
+                    let funnel: Funnel = {} as Funnel
+                
+                    const response = await getDocument(merchant_uuid, "funnels", funnel_uuid);
+            
+                    if (response.status < 300 && response.data) {
+                        funnel = response.data as Funnel;
+                    }
+
+                    let analytics = {
+                        total_funnel_orders: 0,
+                        total_funnel_sales: 0,
+                        total_funnel_aov: 0,
+                        steps: funnel?.steps ? funnel?.steps.map((step, i) => {
+                            return (
+                                {
+                                    name: step.name,
+                                    page_views: 1,
+                                    unique_page_views: 0,
+                                    opt_ins: 0,
+                                    opt_in_rate: 0,
+                                    sales_count: 0,
+                                    sales_rate: 0,
+                                    sales_value: 0,
+                                    recurring_count: 0,
+                                    recurring_value: 0,
+                                    earnings: 0,
+                                    earnings_unique: 0,
+                                    painted: false,
+                                    order: i ? (i + 1) : 1,
+                                }
+                            )
+                        }) : [],
+                        updated_at: admin.firestore.Timestamp.now(),
+                        created_at: admin.firestore.Timestamp.now(),
+                    } as any
+                    
+                    // creat new funnnel_analytics doc
+                    await createFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY), analytics);  
+                }
             } else {
                 // TODO: Update store analytics
             }

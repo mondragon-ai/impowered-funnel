@@ -1,9 +1,9 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
-// import { updateAnalyticsOnOrderSuccess } from "../lib/helpers/analytics/update";
-// import { getToday } from "../lib/helpers/date";
-import { createDocument, getDocument, updateDocument } from "../lib/helpers/firestore";
+import { updateAnalyticsOnOrderSuccess } from "../lib/helpers/analytics/update";
+import { getToday } from "../lib/helpers/date";
+import { createDocument, fetchFunnelAnalytics, getDocument, updateDocument } from "../lib/helpers/firestore";
 import { Customer } from "../lib/types/customers";
 import { Order } from "../lib/types/draft_rders";
 // import { SubscriptionAgreement} from "../lib/types/products";
@@ -17,14 +17,8 @@ export const orderCreated = functions.firestore
     // Get & cast document
     const order = snap.data() as Order;
 
-    // From Order Obj
-    // const _seconds = order?.updated_at?.seconds;
-    // functions.logger.info(_seconds);
-    // let TODAY: Date | string = new Date(_seconds*1000);  
-    // TODAY = TODAY.toString().substring(0,15);
 
-
-    // let TODAY = await getToday();
+    let TODAY = await getToday();
 
     // test value
     const {
@@ -34,16 +28,29 @@ export const orderCreated = functions.firestore
         line_items,
         order_number,
         merchant_uuid,
-        addresses
+        addresses,
+        funnel_uuid
     } = order;
 
     let customer: Customer = {} as Customer;
-    
-    // // get store analytics document
-    // const store_analytics = await getDocument(merchant_uuid, "analytics", String(TODAY));
 
-    // // get store analytics document
-    // const funnnel_analytics = await getFunnelDocument(merchant_uuid, "analytics", String(TODAY));
+    // get store analytics document
+    const store_analytics_res = await getDocument(merchant_uuid, "analytics", String(TODAY));
+
+    let store_analytics = null;
+
+    if (store_analytics_res.status < 300  && store_analytics_res.data) {
+        store_analytics = store_analytics_res.data
+    }
+
+    // get store analytics document
+    const funnnel_analytics_res = await fetchFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY));
+
+    let funnnel_analytics = null;
+
+    if (funnnel_analytics_res.status < 300  && funnnel_analytics_res.data) {
+        funnnel_analytics = funnnel_analytics_res.data
+    }
 
     try {
         // get customer document
@@ -145,85 +152,8 @@ export const orderCreated = functions.firestore
         }
 
     } catch (e) {
-        functions.logger.info(" 🚨 [ERROR] - creating fullfilment");
+        functions.logger.error(" 🚨 [ERROR] - creating fullfilment");
     }
-
-
-    // 
-    // await updateAnalyticsOnOrderSuccess(
-    //     store_analytics.status,
-    //     funnnel_analytics.status,
-    //     store_analytics?.data,
-    //     funnnel_analytics?.data,
-    //     current_total_price,
-    //     line_items,
-    //     String(TODAY),
-    //     true,
-    //     MERCHANT_UUID);
-        // const orderList = customer?.orders ? customer?.orders as string[] : [];
-
-        // functions.logger.info(" =====> [CUSTOMER] - Order & Doc (typed)");
-        // functions.logger.info(customer);
-        // functions.logger.info(orderList);
-
-        // let orders = [
-        //     id as string
-        // ]
-
-        // if (orderList.length > 0) {
-        //     orders = [
-        //         ...orderList,
-        //         id as string
-        //     ]
-        // }
-
-        // functions.logger.info(" =====> [ORDER]");
-        // functions.logger.info(orders);
-
-       
-        // functions.logger.info(" =====> [FULFILLMENT]");
-
-        // await createDocument(merchant_uuid, "fulfillments", "ful_", {
-        //     created_at: admin.firestore.Timestamp.now(),
-        //     updated_at: admin.firestore.Timestamp.now(),
-        //     id: "ful_" + crypto?.randomBytes(10).toString("hex"),
-        //     customer:{
-        //         cus_uuid: customerDoc?.id,
-        //         first_name: customerDoc?.first_name,
-        //         last_name: customerDoc?.last_name,
-        //         email: customerDoc?.email,
-        //         addresses: customerDoc?.addresses,
-        //     },
-        //     last_order: {
-        //         line_items: line_items && line_items.length > 0 ? line_items : [],
-        //         id: id,
-        //         total_price: current_total_price,
-        //         order_number: typeof(order_number) == "string" && order_number !== "" ? order_number : "",
-        //         payment_status: true,
-        //     },
-        //     return_address: {
-        //         type: "BOTH",
-        //         line1: "3049 North College Avenue",
-        //         line2: "",
-        //         city: "Fayetville",
-        //         state: "AR",
-        //         zip: "72704",
-        //         country: "US",
-        //         name: customerDoc?.first_name + " " + (customerDoc?.last_name ? customerDoc?.last_name : ""),
-        //         title: "",
-        //     },
-        //     shipping_line: {
-        //         provider: "USPS",
-        //         rate: "STANDARD",
-        //         packaging_type: "PACKAGE",
-        //         weight: 0.3,
-        //         insurance: false,
-        //         price: 599
-        //     },
-        //     tracking_id: "", 
-        //     label_url: "", 
-        //     status: false
-        // });
 
     try {
     
@@ -253,7 +183,6 @@ export const orderCreated = functions.firestore
         functions.logger.error(" ? [ERROR] - Problem with creating a Gift Card D0cument");
         
     }
-
 
     try {
     
@@ -305,12 +234,13 @@ export const orderCreated = functions.firestore
         
     }
 
-
-    // TODO: check LI for sub
-    // TODO: Create sub ID
-    // TODO: cretea data strcutre && type
-    // TODO: cretea data strcutre && type
-
-
-    
+    // 
+    await updateAnalyticsOnOrderSuccess(
+        store_analytics as FirebaseFirestore.DocumentData,
+        funnnel_analytics as FirebaseFirestore.DocumentData,
+        current_total_price,
+        line_items,
+        String(TODAY),
+        funnel_uuid, 
+        merchant_uuid);
 });

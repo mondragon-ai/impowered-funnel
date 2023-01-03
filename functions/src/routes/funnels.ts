@@ -3,15 +3,15 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { getToday } from "../lib/helpers/date";
 import { createDocument, createFunnelAnalytics, getCollections, getDocument, } from "../lib/helpers/firestore";
-import { DailyFunnel } from "../lib/types/analytics";
+import { FunnelAnalytics } from "../lib/types/analytics";
 import { Funnel } from "../lib/types/funnels";
 import { validateKey } from "./auth";
 
 export const funnelRoutes = (app: express.Router) => {
     app.post("/funnels/create", validateKey, async (req: express.Request, res: express.Response) => {
-        functions.logger.debug(" ====> Ready to sync to algolia");
+        functions.logger.debug(" ====> [FUNNEL] - Started ✅");
         let status = 200,
-            text = "SUCCESS: Funnel document succesffully created 👽",
+            text = "[SUCCESS]: Funnel document succesffully created 👽",
             size = 0,
             result: string = "",
             ok = true;
@@ -20,7 +20,14 @@ export const funnelRoutes = (app: express.Router) => {
         const merchant_uuid:string = req.body.merchant_uuid;
 
         // Data to push
-        const funnel: Funnel = req.body.funnel;
+        let funnel: Funnel = req.body.funnel;
+
+        funnel = {
+            ...funnel,
+            updated_at: admin.firestore.Timestamp.now(),
+            created_at: admin.firestore.Timestamp.now(),
+        } as any
+
 
         // TODO: SPECIAL SCOPE ACCESS CHECK
 
@@ -35,17 +42,17 @@ export const funnelRoutes = (app: express.Router) => {
             functions.logger.debug(" => Document created");
             
         } catch (e) {
-            text = "ERROR: Likely couldnt create a funnel document";
+            text = " 🚨 [ERROR]: Likely couldnt create a funnel document";
             status = 500;
             ok = false;
             functions.logger.error(text);
             throw new Error(text);
         }   
 
-        let analytics: DailyFunnel = {} as DailyFunnel
+        let analytics: FunnelAnalytics = {} as FunnelAnalytics
 
         if (funnel?.steps && funnel?.steps?.length <= 0) {
-            text = "ERROR: Steps necessary to create a funnel";
+            text = " 🚨 [ERROR]:  Steps necessary to create a funnel";
             status = 400;
             ok = false;
             functions.logger.error(text);
@@ -54,10 +61,11 @@ export const funnelRoutes = (app: express.Router) => {
             functions.logger.debug(" => Steps exist");
 
             analytics = {
+                ...analytics,
                 total_funnel_orders: 0,
                 total_funnel_sales: 0,
                 total_funnel_aov: 0,
-                steps: funnel?.steps.map(step => {
+                steps: funnel?.steps ? funnel?.steps.map((step, i) => {
                     return (
                         {
                             name: step.name,
@@ -72,12 +80,14 @@ export const funnelRoutes = (app: express.Router) => {
                             recurring_value: 0,
                             earnings: 0,
                             earnings_unique: 0,
+                            painted: false,
+                            order: (i ? i + 1 : 1)
                         }
                     )
-                }),
+                }) : [],
                 updated_at: admin.firestore.Timestamp.now(),
                 created_at: admin.firestore.Timestamp.now(),
-            } as any
+            } as FunnelAnalytics
 
 
         }
@@ -86,7 +96,7 @@ export const funnelRoutes = (app: express.Router) => {
         try {
 
             if (result === "") {
-                text = "ERROR: Likely couldnt create a funnel document. Cant create analytics without Funnel ID";
+                text = " 🚨 [ERROR]: Likely couldnt create a funnel document. Cant create analytics without Funnel ID";
                 status = 500;
                 ok = false;
                 functions.logger.error(text);
@@ -97,7 +107,6 @@ export const funnelRoutes = (app: express.Router) => {
             functions.logger.debug(" => Ready to push data");
             functions.logger.debug(" => result (id) - " + result);
             functions.logger.debug(" => analytics (to create) -  ");
-            functions.logger.debug(analytics);
 
             const response = await createFunnelAnalytics(merchant_uuid, result, String(TODAY), analytics);
 
@@ -107,7 +116,7 @@ export const funnelRoutes = (app: express.Router) => {
             }
             
         } catch (e) {
-            text = "ERROR: Likely couldnt create a funnel document";
+            text = " 🚨 [ERROR]: Likely couldnt create a funnel document";
             status = 500;
             ok = false;
             functions.logger.error(text);

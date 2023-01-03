@@ -8,6 +8,35 @@ export interface Daily {
     total_checkouts: number,
 }
 
+export type FunnelAnalytics = {
+    id: string;
+    title: string;
+    steps: {
+        painted: boolean,
+        order: number,
+        name: "OPT_IN" | " UPSELL" | "DOWNSELL" | "VIDEO" | "CONFIRMED" | "",
+        page_views: number,
+        unique_page_views: number,
+        opt_ins: number,
+        opt_in_rate: number,
+        sales_count: number,
+        sales_rate: number,
+        sales_value: number,
+        recurring_count: number,
+        recurring_value: number,
+        earnings: number,
+        earnings_unique: number,
+    }[],
+    total_sales: number,
+    status: boolean,
+    total_aov: number, 
+    total_orders: number, 
+    total_earnings: number, 
+    tags: string[],
+    updated_at: FirebaseFirestore.Timestamp,
+    created_at: FirebaseFirestore.Timestamp,
+}
+
 export interface DailyFunnel {
     total_funnel_orders: number,
     total_funnel_sales: number,

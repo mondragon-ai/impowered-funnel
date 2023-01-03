@@ -2,6 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 import { createDocumentWthId, updateFunnelsDocument } from "../lib/helpers/firestore";
+import { getToday } from "../lib/helpers/date";
 
 export const dailyCronJob = functions
   .pubsub
@@ -11,10 +12,7 @@ export const dailyCronJob = functions
     // ? Dynamic ?
     const MERCHANT_UUID = "50rAgweT9PoQKs5u5o7t";
 
-    let TODAY: Date | string = new Date();  
-    TODAY = TODAY.toString().substring(0,15);
-
-    const FUNNEL_UUID = Math.floor(new Date(TODAY).getTime() / 1000);
+    let TODAY = getToday();
 
     // data to be used to create new doc
     const data = {
@@ -55,13 +53,13 @@ export const dailyCronJob = functions
     }
 
     // creat new analytics doc
-    await createDocumentWthId(MERCHANT_UUID, "analytics", String(FUNNEL_UUID), data);
+    await createDocumentWthId(MERCHANT_UUID, "analytics", String(TODAY), data);
 
     let has_funnel = true;
 
     if (has_funnel) {
       // creat new funnnel_analytics doc
-      await updateFunnelsDocument(MERCHANT_UUID, "analytics", String(FUNNEL_UUID), {
+      await updateFunnelsDocument(MERCHANT_UUID, "analytics", String(TODAY), {
         order_page_views: 0,
         order_unique_page_views: 0,
         order_opt_ins: 0,
