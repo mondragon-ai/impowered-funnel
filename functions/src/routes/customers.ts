@@ -126,10 +126,9 @@ export const customerRoute = (
             throw new Error(text);
         }
         
-        try {
+        if (funnel_uuid && funnel_uuid !== "") {
+            try {
 
-            if (funnel_uuid && funnel_uuid !== "") {
-                functions.logger.debug(" ====> [FUNNEL ID] - Update Analytics");
             
                 let TODAY = await getToday();
     
@@ -138,23 +137,28 @@ export const customerRoute = (
                 const analytics: FunnelAnalytics | null =  result.data ? result.data as FunnelAnalytics : null;
     
                 if (analytics !== null) {
+                    functions.logger.debug(" ====> [FUNNEL ID] - Update Analytics");
                     const update = {
                         ...analytics,
                         steps: analytics.steps ? analytics?.steps.map(step => {
                             if (step.name === "OPT_IN") {
                                 return {
-                                    order_opt_ins: (step.opt_ins + 1),
-                                    order_opt_in_rate: ((step.opt_ins ? step.opt_ins + 1 : 1) / (step.page_views ? step.page_views : 1)),
+                                    ...step,
+                                    opt_ins: (step.opt_ins + 1),
+                                    opt_in_rate: ((step.opt_ins ? step.opt_ins + 1 : 1) / (step.page_views ? step.page_views : 1)),
                                 }
                             } 
                             return step
                         }) : [],
                         updated_at: admin.firestore.Timestamp.now()
                     } as FunnelAnalytics;
+
                     await updateFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY), update);
         
                 } else {
 
+
+                    functions.logger.debug(" ====> [FUNNEL ID] - Create Analytics");
 
                     let funnel: Funnel = {} as Funnel
                 
@@ -164,15 +168,34 @@ export const customerRoute = (
                         funnel = response.data as Funnel;
                     }
 
-                    let analytics = {
-                        total_funnel_orders: 0,
-                        total_funnel_sales: 0,
-                        total_funnel_aov: 0,
+                    let update = {
+                        total_orders: 0,
+                        total_sales: 0,
+                        total_aov: 0,
                         steps: funnel?.steps ? funnel?.steps.map((step, i) => {
-                            return (
+                            if (step.name === "OPT_IN") {
+                                return (
                                 {
                                     name: step.name,
-                                    page_views: 1,
+                                    page_views: 0,
+                                    unique_page_views: 0,
+                                    opt_ins: 1,
+                                    opt_in_rate: 1,
+                                    sales_count: 0,
+                                    sales_rate: 0,
+                                    sales_value: 0,
+                                    recurring_count: 0,
+                                    recurring_value: 0,
+                                    earnings: 0,
+                                    earnings_unique: 0,
+                                    painted: false,
+                                }
+                                )
+                            } else {
+                                return (
+                                {
+                                    name: step.name,
+                                    page_views: 0,
                                     unique_page_views: 0,
                                     opt_ins: 0,
                                     opt_in_rate: 0,
@@ -184,23 +207,25 @@ export const customerRoute = (
                                     earnings: 0,
                                     earnings_unique: 0,
                                     painted: false,
-                                    order: i ? (i + 1) : 1,
                                 }
-                            )
+                                )
+                            }
                         }) : [],
                         updated_at: admin.firestore.Timestamp.now(),
                         created_at: admin.firestore.Timestamp.now(),
                     } as any
                     
                     // creat new funnnel_analytics doc
-                    await createFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY), analytics);  
-                }
-            } else {
-                // TODO: Update store analytics
-            }
+                    const new_fun = await createFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY), update);  
 
-        } catch (e) {
-            functions.logger.info("168: [ERROR] - Updating analytics ");
+                    console.log(new_fun)
+                }
+
+            } catch (e) {
+                functions.logger.info("168: [ERROR] - Updating analytics ");
+            }
+        } else {
+            // TODO: Update store analytics
         }
 
         res.status(status).json({

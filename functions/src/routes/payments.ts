@@ -182,7 +182,6 @@ export const paymentsRoutes = (app: express.Router) => {
 
         // Logging
         functions.logger.info("[CUSTOMER] - Fetched:");
-        console.log(customer);
 
         try {
             console.log(customer.draft_orders)
@@ -194,7 +193,6 @@ export const paymentsRoutes = (app: express.Router) => {
 
         // Logging
         functions.logger.info("[DRAFT_ORDER] - Fetched:");
-        console.log(draft_order);
 
         const price = (product as LineItem) ? (product as LineItem).price : 100;
 

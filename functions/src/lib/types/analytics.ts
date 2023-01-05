@@ -14,7 +14,7 @@ export type FunnelAnalytics = {
     steps: {
         painted: boolean,
         order: number,
-        name: "OPT_IN" | " UPSELL" | "DOWNSELL" | "VIDEO" | "CONFIRMED" | "",
+        name: "OPT_IN" | "UPSELL" | "DOWNSELL" | "VIDEO" | "CONFIRMED" | "",
         page_views: number,
         unique_page_views: number,
         opt_ins: number,

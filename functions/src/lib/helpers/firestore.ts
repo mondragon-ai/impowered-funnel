@@ -54,7 +54,7 @@ export const createFunnelAnalytics = async (
     data: any,
 ) => {
     // Data for validation in parent
-    let text = "SUCCESS: Document Created 👍🏻", status = 200;
+    let text = "[SUCCESS]: Document Created 👍🏻", status = 200;
 
     let response; 
 
@@ -68,7 +68,7 @@ export const createFunnelAnalytics = async (
         .doc(today)
         .set({
             ...data,
-            id: doc_uuid
+            id: today
         });
     } catch {
         text = " - Could not create document.";
