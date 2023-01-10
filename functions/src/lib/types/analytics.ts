@@ -110,7 +110,7 @@ export interface Analytics {
         total_orders: number,
         id: string
     }[]
-    id: string,
+    id?: string,
     updated_at: any,
     created_at: any,
 }

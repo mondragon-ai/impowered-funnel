@@ -89,10 +89,17 @@ export const checkoutRoutes = (app: express.Router) => {
                 high_risk);
         }
 
-        functions.logger.info(" =====> [ANALYTICS UPDATE]");
-        // TODO: UPDATE CHCKOUT ANALYTICS
-        // ? Turn into a listner?
-        await updateFunnelCheckout(merchant_uuid, funnel_uuid, price);
+        if (result !== "") {
+            functions.logger.info(" =====> [ANALYTICS UPDATE]");
+            await updateFunnelCheckout(merchant_uuid, funnel_uuid, price);
+            status = 200;
+            ok = true;
+            text = "[SUCCESS]: Transaction ID -> " + result;
+        } else {
+            status = 400;
+            ok = false;
+            text = "[ERROR]: " + " - Likley due to charging customer.";
+        }
 
         // return to client
         res.status(status).json({

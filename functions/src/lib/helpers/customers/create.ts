@@ -22,7 +22,7 @@ export const createCustomerPayment = async (
     // Check email first if exists else create new 👇🏻👇🏻👇🏻
     try {
         if ( data.email != "") {
-            functions.logger.debug(" ===> [EMAIL]");
+            functions.logger.debug(" ====> [EMAIL]");
             // Search the collection for existing email 
             const cusList = await simlpeSearch(merchant_uuid, "customers", "email", data.email);
             
@@ -40,7 +40,7 @@ export const createCustomerPayment = async (
                 status = 200;
             }
         }
-        functions.logger.debug(" ===> [CUSTOMER CHECKED] - " + cus_uuid);
+        functions.logger.debug(" ===> [CUSTOMER CHECKED] - " + cus_uuid ? cus_uuid  : "DOESNT EXIST.");
 
     } catch (e) {
         functions.logger.error("46: " + text + " - Checking emails" )
@@ -54,6 +54,17 @@ export const createCustomerPayment = async (
         updated_at: admin.firestore.Timestamp.now(),
         funnel_uuid: funnel_uuid ? funnel_uuid : "",
         merchant_uuid: merchant_uuid ? merchant_uuid : ""
+    }
+
+    if (!data.email || data.email === "") {
+        return {
+            status: 422,
+            text: " 🚨 [ERROR]: Missing email. ",
+            customers: {
+                cus_uuid: "",
+                ...update_data
+            }
+        }
     }
 
     try {
@@ -103,9 +114,13 @@ export const createCustomerPayment = async (
                     }
                 }
             } else {
+                functions.logger.debug(" ===> [PRE_FLIGHT] -> ");
+                functions.logger.debug(update_data);
                 functions.logger.debug(" ===> [CREATE] - Stripe Client Secret 🔑");
                 const stripe = await createSripeClientSecret(update_data.stripe?.UUID as string);
             
+                functions.logger.debug(" ===> [RESULT] - Stripe Client Secret 🔑");
+                functions.logger.debug(stripe);
                 // OK result & New Document
                 if (stripe?.status < 300) {
                     // Data to push to the primary DB

@@ -145,9 +145,9 @@ export const updateAnalyticsOnOrderSuccess = async (
         const {
             total_sales,
             total_orders,
-        } = funnel_data as FunnelAnalytics;
+        } = funnel as FunnelAnalytics;
 
-        const total = total_sales ? (total_sales + current_total_price) : 0;
+        let total = total_sales ? (total_sales + current_total_price) : current_total_price;
         functions.logger.info(" ====> [FUNNEL TOTAL] - " + total_sales);
         functions.logger.info(" ====> [PRICE] - " + current_total_price);
 
@@ -155,9 +155,9 @@ export const updateAnalyticsOnOrderSuccess = async (
         functions.logger.info(" ====> [INITAL VIEWS] - " + total_initial_views);
 
         let analytics = {
-            ...funnel_data,
+            ...funnel,
             steps: funnel?.steps ? funnel?.steps.map(step => {
-                if (step.name === "OPT_IN") total_initial_views = step.page_views;
+                if (step.name === "OPT_IN") {total_initial_views = step.page_views};
                 return (
                     {
                         ...step,
@@ -172,9 +172,9 @@ export const updateAnalyticsOnOrderSuccess = async (
         analytics = {
             ...analytics,
             total_orders: total_orders ? total_orders + 1 : 1,
-            total_earnings: (total ? (total + current_total_price) : 1),
-            total_sales: (total ? (total + current_total_price) : 1),
-            total_aov: (total ? (total + current_total_price) : 1) / (total_initial_views ? (total_initial_views + 1) : 1),
+            total_earnings: total  / (total_initial_views ? (total_initial_views + 1) : 1),
+            total_sales: total,
+            total_aov: total / (total_orders ? total_orders + 1 : 1),
             updated_at: admin.firestore.Timestamp.now(),
             created_at: admin.firestore.Timestamp.now(),
         } as FunnelAnalytics;

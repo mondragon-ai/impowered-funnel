@@ -272,7 +272,6 @@ export const funnelRoutes = (app: express.Router) => {
         } else {
             text = text + " - NOT INVOKED";
             functions.logger.info(text);
-            throw new Error(text);
         }
 
         res.status(status).json({

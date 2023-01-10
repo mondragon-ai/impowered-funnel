@@ -1,5 +1,6 @@
 import {db} from "../../firebase";
 import * as crypto from "crypto";
+import * as admin from "firebase-admin";
 // import { Product } from "../types/products";
 // import { AppSession } from "../types/Sessions";
 import * as functions from "firebase-functions";
@@ -106,7 +107,6 @@ export const updateFunnelAnalytics = async (
         .doc(today)
         .set({
             ...data,
-            id: doc_uuid
         });
     } catch {
         text = " - Could not create document.";
@@ -431,6 +431,108 @@ export const simlpeSearch = async (
 
     if (result.empty) {
         text = " - Document NOT updated 👎🏻";
+        status = 400;
+        result = null;
+    }
+
+    return {
+        text: text,
+        status: status,
+        data: {
+            list: result 
+        }
+    }
+}
+
+
+
+export const searchFunnelAnalytics = async (
+    merchant_uuid: string,
+    fun_uuid: string,
+    search_data: {start: number, end: number}
+) => {
+
+    const FS_START =  admin.firestore.Timestamp.fromDate(new Date(search_data.start));
+    const FS_END =  admin.firestore.Timestamp.fromDate(new Date(search_data.end));
+    // Data for validation in parent
+    console.log("456: Date Range Search");
+    functions.logger.info(merchant_uuid);
+    functions.logger.info(fun_uuid);
+    console.log(FS_START);
+    console.log(FS_END);
+    let text = " - Document found 👍🏻", status = 200;
+
+    let result: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null = await db
+        .collection("merchants")
+        .doc(merchant_uuid)
+        .collection("funnels")
+        .doc(fun_uuid)
+        .collection("analytics")
+        .orderBy("id")
+        .where("id", ">=", Number(search_data.start))
+        .where("id", "<=", Number(search_data.end))
+        .get()
+
+    // if (result) {
+    //     result = await db
+    //     .collection("merchants")
+    //     .doc(merchant_uuid)
+    //     .collection("funnels")
+    //     .doc(fun_uuid)
+    //     .collection("analytics")
+    //     .get()
+    // }
+
+    if (result.empty) {
+        text = " - Document NOT fetched 👎🏻";
+        status = 400;
+        result = null;
+    }
+
+    return {
+        text: text,
+        status: status,
+        data: {
+            list: result 
+        }
+    }
+}
+
+export const searchAnalytics = async (
+    merchant_uuid: string,
+    search_data: {start: number, end: number}
+) => {
+
+    const FS_START =  admin.firestore.Timestamp.fromDate(new Date(search_data.start));
+    const FS_END =  admin.firestore.Timestamp.fromDate(new Date(search_data.end));
+    // Data for validation in parent
+    console.log("456: Date Range Search");
+    functions.logger.info(merchant_uuid);
+    console.log(FS_START);
+    console.log(FS_END);
+    let text = " - Document found 👍🏻", status = 200;
+
+    let result: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null = await db
+        .collection("merchants")
+        .doc(merchant_uuid)
+        .collection("analytics")
+        .orderBy("id")
+        .where("id", ">=", String(search_data.start))
+        .where("id", "<=", String(search_data.end))
+        .get()
+
+    // if (result) {
+    //     result = await db
+    //     .collection("merchants")
+    //     .doc(merchant_uuid)
+    //     .collection("funnels")
+    //     .doc(fun_uuid)
+    //     .collection("analytics")
+    //     .get()
+    // }
+
+    if (result.empty) {
+        text = " - Document NOT fetched 👎🏻";
         status = 400;
         result = null;
     }

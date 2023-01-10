@@ -8,7 +8,7 @@ import { Product} from "../lib/types/products";
 export const productRoutes = (app: express.Router) => {
 
     // Create Product for Impowered paltform 
-    app.post('/products/create', async (req: express.Request, res: express.Response) => {
+    app.post('/products/create', validateKey, async (req: express.Request, res: express.Response) => {
         let status = 200, text = "🤑 [SUCCESS]: Product created ", data: string | null = null;
         try {
             functions.logger.debug(' ====> [PRODUCT CREATE]');
@@ -63,6 +63,7 @@ export const productRoutes = (app: express.Router) => {
                     result = response.data.collection;
                     size = response.data.size;
                     functions.logger.debug(' ====> [STATUS] - < 300');
+                    status = 200;
                 }
                 if (response.status == 420) {
                     functions.logger.debug(' ====> [STATUS] - 422');

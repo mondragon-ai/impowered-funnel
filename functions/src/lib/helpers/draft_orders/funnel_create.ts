@@ -103,11 +103,11 @@ export const handleSuccessPayment = async (
             const total_orders = (customer?.total_orders ? Number(customer?.total_orders) : 0);
 
             try {
-                
                 functions.logger.info(" ==> [CUSTOMER] - Update");
                 // Data to push to the primary DB
                 let update_data = {
                     ...customer,
+                    funnel_uuid: "",
                     updated_at: admin.firestore.Timestamp.now(),
                     draft_orders: draft_orders_uuid,
                     shopify_uuid: shopif_uuid,

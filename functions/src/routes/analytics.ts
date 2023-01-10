@@ -3,8 +3,8 @@ import * as crypto from 'crypto';
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { getToday } from '../lib/helpers/date';
-import { createDocumentWthId, createFunnelAnalytics, fetchFunnelAnalytics, getDocument, getFunnelDocument, updateFunnelsDocument } from '../lib/helpers/firestore';
-import { Analytics, DailyFunnel } from '../lib/types/analytics';
+import { createDocumentWthId, createFunnelAnalytics, fetchFunnelAnalytics, getDocument, searchAnalytics, searchFunnelAnalytics, updateFunnelAnalytics } from '../lib/helpers/firestore';
+import { Analytics, FunnelAnalytics } from '../lib/types/analytics';
 import { Funnel } from '../lib/types/funnels';
 import { Product } from '../lib/types/products';
 import { validateKey } from './auth';
@@ -69,9 +69,9 @@ export const analyticRoutes = (app: express.Router) => {
                 functions.logger.debug(funnel?.steps.length);
     
                 analytics = {
-                    total_funnel_orders: 0,
-                    total_funnel_sales: 0,
-                    total_funnel_aov: 0,
+                    total_orders: 0,
+                    total_sales: 0,
+                    total_aov: 0,
                     steps: funnel.steps.map((step, i) => {
                         return {
                             name: step.name,
@@ -222,70 +222,541 @@ export const analyticRoutes = (app: express.Router) => {
         })
     })
 
-    app.post("/analytics/page_views", async (req: express.Request, res: express.Response) => {
+    app.post("/analytics/page_views", validateKey ,async (req: express.Request, res: express.Response) => {
+        console.log("[FUNNEL] - Start Routes ✅");
         let status = 500, text = " 🚨 [ERROR]: Likley internal problem 😿 ";
 
-        let MERCHANT_UUID = "50rAgweT9PoQKs5u5o7t";
+        let MERCHANT_UUID = req.body.merchant_uuid;
+        let fun_uuid = req.body.fun_uuid;
 
         const TODAY = await getToday();
 
-        let result: undefined | FirebaseFirestore.DocumentData | any | DailyFunnel = null;
-
-        console.log(String(TODAY));
+        let result: FunnelAnalytics | any = null;
 
         try {
-
-            console.log("TRY");
-            const response = await getFunnelDocument(MERCHANT_UUID, "analytics", String(TODAY));
+            console.log("[FUNNEL] - Fetch Analytics");
+            const response = await fetchFunnelAnalytics(MERCHANT_UUID, fun_uuid, String(TODAY));
 
             // console.log(response);
             if (response.status < 300 && response.data != undefined) {
-                result = response.data as DailyFunnel;
+                result = response.data as FunnelAnalytics;
                 status = 200;
-                text = "SUCCESS: Created Successfullly"
+                text = "[SUCCESS]: Created Successfullly"
             }
             
         } catch (e) {
             text = text + " - Fetching doc.";
         }
-
         const pv: string[][] = req.body.page_view;
+        console.log("[FUNNEL] - Data");
+        console.log(result);
 
         try {
-
-            let update = {
+            let update: FunnelAnalytics = {
                 ...result,
                 updated_at: admin.firestore.Timestamp.now()
             }
+            // [pair[0]]: Number(n) + 1;
 
             pv.forEach(pair => {
-
-                const n = Number.isNaN(result?.[pair[1]]) ? 0 : result?.[pair[1]] == undefined ? 0 :  result?.[pair[1]];
-                console.log(n);
+                // const n = Number.isNaN(result?.[pair[1]]) ? 0 : result?.[pair[1]] == undefined ? 0 :  result?.[pair[1]];
+                console.log(pair)
 
                 update = {
                     ...update,
-                    [pair[0]]: Number(n) + 1
+                    steps: update.steps && update.steps.map(s => {
+                        if (s.name === pair[0]) {
+                            console.log("===> PAIR[0] - " + pair[0] + " - " + s.name)
+                            if ("page_views" === pair[1]) {
+                                console.log("===> PAIR[0] - " + pair[1])
+                                return {
+                                    ...s,
+                                    page_views: s.page_views ?  s.page_views + 1 : 1,
+                                    earnings: (s.earnings ? s.earnings : 0) / (s.page_views ? ( s.page_views + 1 ): 1),
+                                }
+                            }
+                            if ("unique_page_views" === pair[1]) {
+                                console.log("===> PAIR[0] - " + pair[1])
+                                return {
+                                    ...s,
+                                    unique_page_views:  (s.unique_page_views ?  s.unique_page_views + 1 : 1),
+                                    earnings_unique: (s.earnings_unique ? s.earnings_unique : 0 )/ (s.unique_page_views ?  s.unique_page_views + 1 : 1),
+                                }
+                            }
+                        }
+                        return s
+                    })
                 }
             });
+            console.log("[FUNNEL] - Update Data");
+            console.log(update);
 
-            const response = await updateFunnelsDocument(MERCHANT_UUID, "analytics", String(TODAY), update);
+            console.log("[MERCHANT_UUID] - ");
+            console.log(MERCHANT_UUID);
+
+            console.log("[funnel_uuid] - ");
+            console.log(fun_uuid);
+
+            console.log("[FUNNEL] - Update Analytics");
+            const response = await updateFunnelAnalytics(MERCHANT_UUID, fun_uuid, String(TODAY), update);
 
             // console.log(response);
             if (response.status < 300 && response.data != undefined) {
                 result = response.data;
                 status = 200;
-                text = "SUCCESS: Created Successfullly"
+                text = "[SUCCESS]: Created Successfullly"
             }
             
         } catch (e) {
             text = text + " - Updating funnels analytics doc"
         }
 
-
         res.status(status).json({
             text: text,
             data: result
+        })
+
+    });
+    
+    app.post("/analytics/search", validateKey ,async (req: express.Request, res: express.Response) => {
+        console.log("[FUNNEL] - Start Routes ✅");
+        let status = 500, text = " 🚨 [ERROR]: Likley internal problem 😿 ",  analytics: Analytics | any = null;
+
+        let merchant_uuid = req.body.merchant_uuid;
+        let search_data: {start: number, end: number} = req.body.search_data || null;
+
+        try {
+            functions.logger.info("[PRE_FLIGHT] - Vars");
+            const response = await searchAnalytics(merchant_uuid, search_data);
+            
+            functions.logger.info("[POST_FLIGHT] - Response");
+            console.log(response);
+            if (response.status < 300 && response.data.list && !response.data.list.empty) {
+                functions.logger.info("[FOUND] - List Fetched & Starting calculations ✅");
+
+                analytics = {
+                    ...analytics,
+                    total_orders: 0,
+                    total_aov: 0,
+                    total_revenue: 0,
+                    total_sessions: 0,
+                    total_carts: 0,
+                    total_checkouts: 0,
+                    prev_daily_sessions: 0,
+                    total_daily_sessions: 0,
+                    daily_sessions_rate: 0,
+                    prev_daily_new_sessions: 0,
+                    total_daily_new_sessions: 0,
+                    daily_new_sessions_rate: 0,
+                    prev_daily_sales: 0,
+                    total_daily_sales: 0,
+                    daily_sales_rate: 0,
+                    prev_daily_carts: 0,
+                    total_daily_carts: 0,
+                    daily_carts_rate: 0,
+                    prev_daily_checkouts: 0,
+                    prev_daily_aov: 0,
+                    total_daily_checkouts: 1,
+                    total_daily_orders: 0,
+                    total_funnel_sales: 0,
+                    total_funnel_orders: 0,
+                    total_online_sales: 0,
+                    total_online_orders: 0,
+                    daily_aov: 0,
+                    daily_order_rate: 0,
+                    daily_cart_rate: 0,
+                    daily_checkout_rate: 0,
+                    top_sellers: [],
+                } as Analytics;
+
+                let top_sellers: {title: string, total_orders: number}[] = []
+
+                response.data.list.forEach(date => {
+                    const analytic_date = date.data() as Analytics;
+                    const id = date.id;
+                    console.log(id);
+
+                    if (Number(id) >= search_data.start && Number(id) <= search_data.end ) {
+                        functions.logger.info("[FOUND] - Inside SINGLE DAY ✅");
+
+                        analytics = {
+                            ...analytics,
+                            total_orders: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            total_aov: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            total_revenue: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            total_sessions: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            total_carts: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            total_checkouts: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            prev_daily_sessions: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            total_daily_sessions: analytics.total_daily_sessions ?  analytics.total_daily_sessions +  analytic_date.total_daily_sessions :  analytic_date.total_daily_sessions,
+                            daily_sessions_rate: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            prev_daily_new_sessions: analytics.prev_daily_new_sessions ?  analytics.prev_daily_new_sessions +  analytic_date.prev_daily_new_sessions :  analytic_date.prev_daily_new_sessions,
+                            total_daily_new_sessions: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            daily_new_sessions_rate: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            prev_daily_sales: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            total_daily_sales: analytics.total_daily_sales ?  analytics.total_daily_sales +  analytic_date.total_daily_sales :  analytic_date.total_daily_sales,
+                            daily_sales_rate: analytics.daily_sales_rate ?  analytics.daily_sales_rate +  analytic_date.daily_sales_rate :  analytic_date.daily_sales_rate,
+                            prev_daily_carts: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            total_daily_carts: analytics.total_daily_carts ?  analytics.total_daily_carts +  analytic_date.total_daily_carts :  analytic_date.total_daily_carts,
+                            daily_carts_rate: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            prev_daily_checkouts: analytics.prev_daily_checkouts ?  analytics.prev_daily_checkouts +  analytic_date.prev_daily_checkouts :  analytic_date.prev_daily_checkouts,
+                            prev_daily_aov: analytics.prev_daily_aov ?  analytics.prev_daily_aov +  analytic_date.prev_daily_aov :  analytic_date.prev_daily_aov,
+                            total_daily_checkouts: analytics.total_daily_checkouts ?  analytics.total_daily_checkouts +  analytic_date.total_daily_checkouts :  analytic_date.total_daily_checkouts,
+                            total_daily_orders: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytic_date.total_daily_orders,
+                            total_funnel_sales: analytics.total_funnel_sales ?  analytics.total_funnel_sales +  analytic_date.total_funnel_sales :  analytic_date.total_funnel_sales,
+                            total_funnel_orders: analytics.total_funnel_orders ?  analytics.total_funnel_orders +  analytic_date.total_funnel_orders :  analytic_date.total_funnel_orders,
+                            total_online_sales: analytics.total_online_sales ?  analytics.total_online_sales +  analytic_date.total_online_sales :  analytic_date.total_online_sales,
+                            total_online_orders: analytics.total_online_orders ?  analytics.total_online_orders +  analytic_date.total_online_orders :  analytic_date.total_online_orders,
+                            daily_aov: analytics.daily_aov ?  analytics.daily_aov +  analytic_date.daily_aov :  analytic_date.daily_aov,
+                            daily_order_rate: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            daily_cart_rate: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                            daily_checkout_rate: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
+                        } as Analytics;
+
+                        analytic_date.top_sellers.forEach(top => {
+                            if (top_sellers.length > 0) {
+                                top_sellers.forEach(t => {
+                                    if (t.title === top.title) {
+                                        top_sellers = [
+                                            ...top_sellers,
+                                            {
+                                                title: top.title,
+                                                total_orders: t.total_orders && top.total_orders ? t.total_orders + top.total_orders : 1
+                                            }
+                                        ]
+                                    }
+                                })
+                            } else {
+                                top_sellers = [
+                                    ...top_sellers,
+                                    {
+                                        title: top.title,
+                                        total_orders: 1
+                                    }
+                                ]
+                            }
+                        })
+                    }
+                })
+
+                analytics = {
+                    ...analytics,
+                    top_sellers: top_sellers
+                }
+
+                status = 200;
+                text = " ==> [SUCCESS]: Analytics fetched and calculated -> ";
+            }
+        } catch (e) {
+            text =  text + "Pobably incorrect search data -- needs to be in seconds as a number"
+        }
+        console.log("[ANALYTICS] ✅");
+        console.log(analytics);
+        
+
+        res.status(status).json({
+            text: text,
+            data: analytics
+        })
+
+    })
+    
+    app.post("/analytics/search/funnels", validateKey ,async (req: express.Request, res: express.Response) => {
+        console.log("[FUNNEL] - Start Routes ✅");
+        let status = 500, text = " 🚨 [ERROR]: Likley internal problem 😿 ",  analytics: FunnelAnalytics | any = null;
+
+        let merchant_uuid = req.body.merchant_uuid;
+        let fun_uuid = req.body.fun_uuid;
+        let search_data: {start: number, end: number} = req.body.search_data || null;
+
+        try {
+            functions.logger.info("[PRE_FLIGHT] - Vars");
+            const response = await searchFunnelAnalytics(merchant_uuid, fun_uuid, search_data);
+            
+            functions.logger.info("[POST_FLIGHT] - Response");
+            console.log(response);
+            if (response.status < 300 && response.data.list && !response.data.list.empty) {
+                functions.logger.info("[FOUND] - List Fetched & Starting calculations ✅");
+                let steps: any[] = [];
+
+                let opt_in = {
+                    name: "",
+                    page_views: 0,
+                    unique_page_views:0,
+                    opt_ins:0,
+                    opt_in_rate:0,
+                    sales_count:0,
+                    sales_rate:0,
+                    sales_value:0,
+                    recurring_count:0,
+                    recurring_value:0,
+                    earnings:0,
+                    earnings_unique:0
+                };
+                let downsell = {
+                    name: "",
+                    page_views: 0,
+                    unique_page_views:0,
+                    opt_ins:0,
+                    opt_in_rate:0,
+                    sales_count:0,
+                    sales_rate:0,
+                    sales_value:0,
+                    recurring_count:0,
+                    recurring_value:0,
+                    earnings:0,
+                    earnings_unique:0
+                };
+                let upsell = {
+                    name: "",
+                    page_views: 0,
+                    unique_page_views:0,
+                    opt_ins:0,
+                    opt_in_rate:0,
+                    sales_count:0,
+                    sales_rate:0,
+                    sales_value:0,
+                    recurring_count:0,
+                    recurring_value:0,
+                    earnings:0,
+                    earnings_unique:0
+                };
+                let confirmed = {
+                    name: "",
+                    page_views: 0,
+                    unique_page_views:0,
+                    opt_ins:0,
+                    opt_in_rate:0,
+                    sales_count:0,
+                    sales_rate:0,
+                    sales_value:0,
+                    recurring_count:0,
+                    recurring_value:0,
+                    earnings:0,
+                    earnings_unique:0
+                };
+
+                analytics = {
+                    total_sales: 0,
+                    total_aov: 0,
+                    total_orders: 0,
+                    steps: steps
+                } as FunnelAnalytics
+
+                response.data.list.forEach(date => {
+                    const analytic_date = date.data() as FunnelAnalytics;
+                    const id = date.id;
+                    console.log(id);
+
+                    if (Number(id) >= search_data.start && Number(id) <= search_data.end ) {
+                        functions.logger.info("[FOUND] - Inside SINGLE DAY ✅");
+                        const total =  analytics.total_sales ?  analytics.total_sales + analytic_date.total_sales : analytic_date.total_sales;
+                        const orders = analytics.total_orders ?  analytics.total_orders + analytic_date.total_orders : analytic_date.total_orders
+    
+    
+                        // let steps: any[] = [];
+    
+                        // analytic_date.steps.forEach(step => {
+                        //     if (step.name === "OPT_IN") {
+                        //         steps = steps.map(s => {
+                        //             if (s.name === "OPT_IN") {
+                        //                 steps = [
+                        //                     ...steps,
+                        //                     {
+                        //                         ...step,
+                        //                         page_views: step.page_views + s.page_view,
+                        //                         unique_page_views: step.unique_page_views + s.unique_page_views,
+                        //                         opt_ins: step.opt_ins + s.opt_ins,
+                        //                         opt_in_rate: step.opt_in_rate + s.opt_in_rate,
+                        //                         sales_count: step.sales_count + s.sales_count,
+                        //                         sales_rate: step.sales_rate + s.sales_rate,
+                        //                         sales_value: step.sales_value + s.sales_value,
+                        //                         recurring_count: step.recurring_count + s.recurring_count,
+                        //                         recurring_value: step.recurring_value + s.recurring_value,
+                        //                         earnings: step.earnings + s.earnings,
+                        //                         earnings_unique: step.earnings_unique + s.earnings_unique,
+                        //                     }
+                        //                 ]
+                        //             }
+                        //         })
+                        //     }
+                        //     if (step.name === "UPSELL") {
+                        //         steps = steps.map(s => {
+                        //             if (s.name === "UPSELL") {
+                        //                 steps = [
+                        //                     ...steps,
+                        //                     {
+                        //                         ...step,
+                        //                         page_views: step.page_views + s.page_view,
+                        //                         unique_page_views: step.unique_page_views + s.unique_page_views,
+                        //                         opt_ins: step.opt_ins + s.opt_ins,
+                        //                         opt_in_rate: step.opt_in_rate + s.opt_in_rate,
+                        //                         sales_count: step.sales_count + s.sales_count,
+                        //                         sales_rate: step.sales_rate + s.sales_rate,
+                        //                         sales_value: step.sales_value + s.sales_value,
+                        //                         recurring_count: step.recurring_count + s.recurring_count,
+                        //                         recurring_value: step.recurring_value + s.recurring_value,
+                        //                         earnings: step.earnings + s.earnings,
+                        //                         earnings_unique: step.earnings_unique + s.earnings_unique,
+                        //                     }
+                        //                 ]
+                        //             }
+                        //         })
+                        //     }
+                        //     if (step.name === "DOWNSELL") {
+                        //         steps = steps.map(s => {
+                        //             if (s.name === "DOWNSELL") {
+                        //                 steps = [
+                        //                     ...steps,
+                        //                     {
+                        //                         ...step,
+                        //                         page_views: step.page_views + s.page_view,
+                        //                         unique_page_views: step.unique_page_views + s.unique_page_views,
+                        //                         opt_ins: step.opt_ins + s.opt_ins,
+                        //                         opt_in_rate: step.opt_in_rate + s.opt_in_rate,
+                        //                         sales_count: step.sales_count + s.sales_count,
+                        //                         sales_rate: step.sales_rate + s.sales_rate,
+                        //                         sales_value: step.sales_value + s.sales_value,
+                        //                         recurring_count: step.recurring_count + s.recurring_count,
+                        //                         recurring_value: step.recurring_value + s.recurring_value,
+                        //                         earnings: step.earnings + s.earnings,
+                        //                         earnings_unique: step.earnings_unique + s.earnings_unique,
+                        //                     }
+                        //                 ]
+                        //             }
+                        //         })
+                        //     }
+                        //     if (step.name === "CONFIRMED") {
+                        //         steps = steps.map(s => {
+                        //             if (s.name === "CONFIRMED") {
+                        //                 steps = [
+                        //                     ...steps,
+                        //                     {
+                        //                         ...step,
+                        //                         page_views: step.page_views + s.page_view,
+                        //                         unique_page_views: step.unique_page_views + s.unique_page_views,
+                        //                         opt_ins: step.opt_ins + s.opt_ins,
+                        //                         opt_in_rate: step.opt_in_rate + s.opt_in_rate,
+                        //                         sales_count: step.sales_count + s.sales_count,
+                        //                         sales_rate: step.sales_rate + s.sales_rate,
+                        //                         sales_value: step.sales_value + s.sales_value,
+                        //                         recurring_count: step.recurring_count + s.recurring_count,
+                        //                         recurring_value: step.recurring_value + s.recurring_value,
+                        //                         earnings: step.earnings + s.earnings,
+                        //                         earnings_unique: step.earnings_unique + s.earnings_unique,
+                        //                     }
+                        //                 ]
+                        //             }
+                        //         })
+                        //     }
+                        // })
+    
+                        analytic_date.steps.forEach(step => {
+                            if (step.name === "OPT_IN") {
+                                opt_in = {
+                                    ...step,
+                                    name: step.name || "OPT_IN",
+                                    page_views: opt_in.page_views ? (opt_in.page_views + step.page_views) : step.page_views,
+                                    unique_page_views: opt_in.unique_page_views ? (opt_in.unique_page_views + step.unique_page_views) : step.unique_page_views,
+                                    opt_ins: opt_in.opt_ins ? (opt_in.opt_ins + step.opt_ins) : step.opt_ins,
+                                    opt_in_rate: opt_in.opt_in_rate ? (opt_in.opt_in_rate + step.opt_in_rate) : step.opt_in_rate,
+                                    sales_count: opt_in.sales_count ? (opt_in.sales_count + step.sales_count) : step.sales_count,
+                                    sales_rate: opt_in.sales_rate ? (opt_in.sales_rate + step.sales_rate) : step.sales_rate,
+                                    sales_value: opt_in.sales_value ? (opt_in.sales_value + step.sales_value) : step.sales_value,
+                                    recurring_count: opt_in.recurring_count ? (opt_in.recurring_count + step.recurring_count) : step.recurring_count,
+                                    recurring_value: opt_in.recurring_value ? (opt_in.recurring_value + step.recurring_value) : step.recurring_value,
+                                    earnings: opt_in.earnings ? (opt_in.earnings + step.earnings) : step.earnings,
+                                    earnings_unique: opt_in.earnings_unique ? (opt_in.earnings_unique + step.earnings_unique) : step.earnings_unique,
+                                }
+                            }
+                            if (step.name === "UPSELL") {
+                                upsell = {
+                                    ...step,
+                                    name: step.name || "UPSELL",
+                                    page_views: upsell.page_views ? (upsell.page_views + step.page_views) : step.page_views,
+                                    unique_page_views: upsell.unique_page_views ? (upsell.unique_page_views + step.unique_page_views) : step.unique_page_views,
+                                    opt_ins: upsell.opt_ins ? (upsell.opt_ins + step.opt_ins) : step.opt_ins,
+                                    opt_in_rate: upsell.opt_in_rate ? (upsell.opt_in_rate + step.opt_in_rate) : step.opt_in_rate,
+                                    sales_count: upsell.sales_count ? (upsell.sales_count + step.sales_count) : step.sales_count,
+                                    sales_rate: upsell.sales_rate ? (upsell.sales_rate + step.sales_rate) : step.sales_rate,
+                                    sales_value: upsell.sales_value ? (upsell.sales_value + step.sales_value) : step.sales_value,
+                                    recurring_count: upsell.recurring_count ? (upsell.recurring_count + step.recurring_count) : step.recurring_count,
+                                    recurring_value: upsell.recurring_value ? (upsell.recurring_value + step.recurring_value) : step.recurring_value,
+                                    earnings: upsell.earnings ? (upsell.earnings + step.earnings) : step.earnings,
+                                    earnings_unique: upsell.earnings_unique ? (upsell.earnings_unique + step.earnings_unique) : step.earnings_unique,
+                                }
+                            }
+                            if (step.name === "DOWNSELL") {
+                                downsell = {
+                                    ...step,
+                                    name: step.name || "DOWNSELL",
+                                    page_views: downsell.page_views ? (downsell.page_views + step.page_views) : step.page_views,
+                                    unique_page_views: upsell.unique_page_views ? (downsell.unique_page_views + step.unique_page_views) : step.unique_page_views,
+                                    opt_ins: downsell.opt_ins ? (downsell.opt_ins + step.opt_ins) : step.opt_ins,
+                                    opt_in_rate: downsell.opt_in_rate ? (downsell.opt_in_rate + step.opt_in_rate) : step.opt_in_rate,
+                                    sales_count: downsell.sales_count ? (downsell.sales_count + step.sales_count) : step.sales_count,
+                                    sales_rate: downsell.sales_rate ? (downsell.sales_rate + step.sales_rate) : step.sales_rate,
+                                    sales_value: downsell.sales_value ? (downsell.sales_value + step.sales_value) : step.sales_value,
+                                    recurring_count: downsell.recurring_count ? (downsell.recurring_count + step.recurring_count) : step.recurring_count,
+                                    recurring_value: downsell.recurring_value ? (downsell.recurring_value + step.recurring_value) : step.recurring_value,
+                                    earnings: downsell.earnings ? (downsell.earnings + step.earnings) : step.earnings,
+                                    earnings_unique: downsell.earnings_unique ? (downsell.earnings_unique + step.earnings_unique) : step.earnings_unique,
+                                }
+                            }
+                            if (step.name === "CONFIRMED") {
+                                confirmed = {
+                                    ...step,
+                                    name: step.name || "CONFIRMED",
+                                    page_views: confirmed.page_views ? (confirmed.page_views + step.page_views) : step.page_views,
+                                    unique_page_views: confirmed.unique_page_views ? (confirmed.unique_page_views + step.unique_page_views) : step.unique_page_views,
+                                    opt_ins: confirmed.opt_ins ? (confirmed.opt_ins + step.opt_ins) : step.opt_ins,
+                                    opt_in_rate: confirmed.opt_in_rate ? (confirmed.opt_in_rate + step.opt_in_rate) : step.opt_in_rate,
+                                    sales_count: confirmed.sales_count ? (confirmed.sales_count + step.sales_count) : step.sales_count,
+                                    sales_rate: confirmed.sales_rate ? (confirmed.sales_rate + step.sales_rate) : step.sales_rate,
+                                    sales_value: confirmed.sales_value ? (confirmed.sales_value + step.sales_value) : step.sales_value,
+                                    recurring_count: confirmed.recurring_count ? (confirmed.recurring_count + step.recurring_count) : step.recurring_count,
+                                    recurring_value: confirmed.recurring_value ? (confirmed.recurring_value + step.recurring_value) : step.recurring_value,
+                                    earnings: confirmed.earnings ? (confirmed.earnings + step.earnings) : step.earnings,
+                                    earnings_unique: confirmed.earnings_unique ? (confirmed.earnings_unique + step.earnings_unique) : step.earnings_unique,
+                                }
+                            }
+                        })
+    
+                        analytics = {
+                            ...analytics,
+                            total_sales: total,
+                            total_aov: total / orders,
+                            total_orders: orders,
+                        } as FunnelAnalytics
+
+                    }
+                });
+
+                steps = [
+                    opt_in,
+                    upsell,
+                    confirmed
+                ];
+
+                analytics = {
+                    ...analytics,
+                    total_earnings: analytics.total_sales ? (analytics.total_sales / opt_in.page_views) : analytics.total_sales ? analytics.total_sales : 0,
+                    steps: steps
+                } as FunnelAnalytics
+
+                status = 200;
+                text = " ==> [SUCCESS]: Analytics fetched and calculated -> ";
+            }
+        } catch (e) {
+            text =  text + "Pobably incorrect search data -- needs to be in seconds as a number"
+        }
+        console.log("[ANALYTICS] ✅");
+        console.log(analytics);
+        
+
+        res.status(status).json({
+            text: text,
+            data: analytics
         })
 
     })

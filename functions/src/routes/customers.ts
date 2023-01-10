@@ -128,7 +128,6 @@ export const customerRoute = (
         
         if (funnel_uuid && funnel_uuid !== "") {
             try {
-
             
                 let TODAY = await getToday();
     
@@ -136,7 +135,7 @@ export const customerRoute = (
     
                 const analytics: FunnelAnalytics | null =  result.data ? result.data as FunnelAnalytics : null;
     
-                if (analytics !== null) {
+                if (analytics !== null && customer && result) {
                     functions.logger.debug(" ====> [FUNNEL ID] - Update Analytics");
                     const update = {
                         ...analytics,
@@ -157,68 +156,69 @@ export const customerRoute = (
         
                 } else {
 
+                    if (customer && result) {
+                        functions.logger.debug(" ====> [FUNNEL ID] - Create Analytics");
 
-                    functions.logger.debug(" ====> [FUNNEL ID] - Create Analytics");
-
-                    let funnel: Funnel = {} as Funnel
-                
-                    const response = await getDocument(merchant_uuid, "funnels", funnel_uuid);
-            
-                    if (response.status < 300 && response.data) {
-                        funnel = response.data as Funnel;
-                    }
-
-                    let update = {
-                        total_orders: 0,
-                        total_sales: 0,
-                        total_aov: 0,
-                        steps: funnel?.steps ? funnel?.steps.map((step, i) => {
-                            if (step.name === "OPT_IN") {
-                                return (
-                                {
-                                    name: step.name,
-                                    page_views: 0,
-                                    unique_page_views: 0,
-                                    opt_ins: 1,
-                                    opt_in_rate: 1,
-                                    sales_count: 0,
-                                    sales_rate: 0,
-                                    sales_value: 0,
-                                    recurring_count: 0,
-                                    recurring_value: 0,
-                                    earnings: 0,
-                                    earnings_unique: 0,
-                                    painted: false,
-                                }
-                                )
-                            } else {
-                                return (
-                                {
-                                    name: step.name,
-                                    page_views: 0,
-                                    unique_page_views: 0,
-                                    opt_ins: 0,
-                                    opt_in_rate: 0,
-                                    sales_count: 0,
-                                    sales_rate: 0,
-                                    sales_value: 0,
-                                    recurring_count: 0,
-                                    recurring_value: 0,
-                                    earnings: 0,
-                                    earnings_unique: 0,
-                                    painted: false,
-                                }
-                                )
-                            }
-                        }) : [],
-                        updated_at: admin.firestore.Timestamp.now(),
-                        created_at: admin.firestore.Timestamp.now(),
-                    } as any
+                        let funnel: Funnel = {} as Funnel
                     
-                    // creat new funnnel_analytics doc
-                    const new_fun = await createFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY), update);  
-
-                    console.log(new_fun)
+                        const response = await getDocument(merchant_uuid, "funnels", funnel_uuid);
+                
+                        if (response.status < 300 && response.data) {
+                            funnel = response.data as Funnel;
+                        }
+    
+                        let update = {
+                            total_orders: 0,
+                            total_sales: 0,
+                            total_aov: 0,
+                            steps: funnel?.steps ? funnel?.steps.map((step, i) => {
+                                if (step.name === "OPT_IN") {
+                                    return (
+                                    {
+                                        name: step.name,
+                                        page_views: 0,
+                                        unique_page_views: 0,
+                                        opt_ins: 1,
+                                        opt_in_rate: 1,
+                                        sales_count: 0,
+                                        sales_rate: 0,
+                                        sales_value: 0,
+                                        recurring_count: 0,
+                                        recurring_value: 0,
+                                        earnings: 0,
+                                        earnings_unique: 0,
+                                        painted: false,
+                                    }
+                                    )
+                                } else {
+                                    return (
+                                    {
+                                        name: step.name,
+                                        page_views: 0,
+                                        unique_page_views: 0,
+                                        opt_ins: 0,
+                                        opt_in_rate: 0,
+                                        sales_count: 0,
+                                        sales_rate: 0,
+                                        sales_value: 0,
+                                        recurring_count: 0,
+                                        recurring_value: 0,
+                                        earnings: 0,
+                                        earnings_unique: 0,
+                                        painted: false,
+                                    }
+                                    )
+                                }
+                            }) : [],
+                            updated_at: admin.firestore.Timestamp.now(),
+                            created_at: admin.firestore.Timestamp.now(),
+                        } as any
+                        
+                        // creat new funnnel_analytics doc
+                        const new_fun = await createFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY), update);  
+    
+                        console.log(new_fun)
+                    }
                 }
 
             } catch (e) {

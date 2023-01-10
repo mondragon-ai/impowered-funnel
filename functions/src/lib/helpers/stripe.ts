@@ -131,7 +131,7 @@ import { shopifyRequest } from "./shopify";
           }
         }
       );
-      functions.logger.info(" ===> [STRIPE] - Update Customer")
+      functions.logger.info(" ===> [STRIPE] - Update Customer");
       return {
         status: 200,
         text: "Stripe customer updated successfully 🤑",
@@ -170,6 +170,10 @@ import { shopifyRequest } from "./shopify";
     console.log(product);
     functions.logger.info(" ===> [CUS_UUID]: " + cus_uuid);
 
+    if (cus_uuid == "" || email == "") {
+      return ""
+    }
+
     let STRIPE_PI = "";
     let STRIPE_PM = "";
 
@@ -189,7 +193,7 @@ import { shopifyRequest } from "./shopify";
             functions.logger.info(STRIPE_PM);
                 
           } catch (e) {
-            functions.logger.info(" ===> [ERROR]: " + " - charging customer - stripe 168");
+            functions.logger.info(" ===> 🚨 [ERROR]: " + " - GETTING PM for customer - stripe 198");
           }
           return resolve(STRIPE_PM as string);
         }, 1000);
@@ -220,7 +224,7 @@ import { shopifyRequest } from "./shopify";
             functions.logger.info(STRIPE_PI);
             
           } catch (e) {
-              functions.logger.info(" ===> [ERROR]: " + " - charging customer - stripe 168");
+              functions.logger.info(" ===> 🚨 [ERROR]: " + " - Charging customer - stripe 227");
           }
 
           return resolve(STRIPE_PI as string);
