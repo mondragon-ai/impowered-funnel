@@ -35,12 +35,14 @@ export const createCustomerPayment = async (
                     ]
                 });
                 cus_uuid = customers[0].id;
-                update_data = customers[0];
+                update_data = {
+                    ...customers[0]
+                };
                 text = "[SUCCESS] Customer already exists";
                 status = 200;
             }
         }
-        functions.logger.debug(" ===> [CUSTOMER CHECKED] - " + cus_uuid ? cus_uuid  : "DOESNT EXIST.");
+        functions.logger.debug((" ===> [CUSTOMER CHECKED] - ") + (cus_uuid ? cus_uuid  : "DOESNT EXIST."));
 
     } catch (e) {
         functions.logger.error("46: " + text + " - Checking emails" )
@@ -50,6 +52,7 @@ export const createCustomerPayment = async (
     // Data to push to the primary DB
     update_data = {
         ...data,
+        ...update_data,
         created_at: admin.firestore.Timestamp.now(),
         updated_at: admin.firestore.Timestamp.now(),
         funnel_uuid: funnel_uuid ? funnel_uuid : "",
@@ -145,7 +148,7 @@ export const createCustomerPayment = async (
 
     try {
         if (customers.length !== 0 && cus_uuid !== "")  {
-            functions.logger.debug(" ===> [CUSTOMER EXISTS] 😮‍💨");
+            functions.logger.debug(" ===> [CUSTOMER EXISTS] 👍🏻");
 
             // push to primary DB --> Creating new customer document
             const response = await updateDocument(merchant_uuid, "customers", cus_uuid, update_data)
@@ -163,7 +166,7 @@ export const createCustomerPayment = async (
             text = "[SUCCESS] Stripe Created - Updated document";
             status = 201;
         } else {
-            functions.logger.debug(" ===> [CUSTOMER CREATE] 😮");
+            functions.logger.debug(" ===> [CUSTOMER CREATE] 🆕");
             const response = await createDocument(merchant_uuid, "customers", "cus_", update_data);
             functions.logger.debug(" ====> [CREATE RESPONSE] - Customer");
             functions.logger.debug(response);

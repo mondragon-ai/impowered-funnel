@@ -153,7 +153,8 @@ import { shopifyRequest } from "./shopify";
     price: number,
     product: any,
     shipping: Address | null,
-    high_risk: boolean
+    high_risk: boolean,
+    bump: boolean,
   ) => {
 
     const {
@@ -236,7 +237,7 @@ import { shopifyRequest } from "./shopify";
 
     let address = shipping;
 
-    if (address != null) {
+    if (address != null && STRIPE_PI !== "") {
 
       if (addresses && addresses.length > 0) {
         addresses.map(addy => {
@@ -245,7 +246,7 @@ import { shopifyRequest } from "./shopify";
           }
         })
       }
-      handleSuccessPayment(customer, product, STRIPE_PI, STRIPE_PM, shipping, high_risk);
+      handleSuccessPayment(customer, product, STRIPE_PI, STRIPE_PM, shipping, high_risk, bump);
       functions.logger.info(" ===> [DRAFT ORDER] - Create");
     } 
 
@@ -271,6 +272,7 @@ import { shopifyRequest } from "./shopify";
 ) => {
   // Logging
   functions.logger.info(" => [HANDLE SUBSCRIPTION] - Start");
+  functions.logger.info(draft_order);
 
   // Set vars for subs
   const shopify_uuid = customer.shopify_uuid ? customer.shopify_uuid  : ""
@@ -313,22 +315,15 @@ import { shopifyRequest } from "./shopify";
   // Create Sub JSON
   const subscription = JSON.parse(JSON.stringify(subResponse));
   console.log(" => [RESULT SUBSCRIPTION]:");
-  console.log(subscription);
+  functions.logger.info(subscription);
 
-  const subs: string [] = customer.subscriptions ? customer.subscriptions : []
-
-  // Update FB Doc 
-  const customerDoc = await updateDocument(merchant_uuid, "customers", cus_uuid, {
-    subscriptions: [...subs, subscription.id]
-  });
-  console.log(" => [UPDATED DOCUMENT] - Customer:");
-  console.log(customerDoc);
+  const subs: string [] = customer.subscriptions ? customer.subscriptions : [];
 
   let update_order = {
     ...draft_order,
     line_items: [...draft_order?.line_items] as LineItem[],
-    current_total_price: draft_order?.current_total_price ? draft_order?.current_total_price + price : 0,
-    current_subtotal_price: draft_order?.current_subtotal_price ? draft_order?.current_subtotal_price + price : 0,
+    current_total_price: draft_order?.current_total_price ? draft_order?.current_total_price + Number(price) : 0,
+    current_subtotal_price: draft_order?.current_subtotal_price ? draft_order?.current_subtotal_price + Number(price) : 0,
   } as Order
 
   const product = {
@@ -337,7 +332,7 @@ import { shopifyRequest } from "./shopify";
     title: "SUBSCRIPTIONS PRODUCT",
     sku: "sub_item", 
     handle: "subscription_product",
-    price: price,
+    price: Number(price),
     high_risk: false,
     options1: "",
     options2: "",
@@ -351,7 +346,7 @@ import { shopifyRequest } from "./shopify";
     update_order = {
       ...update_order,
       line_items: [
-        ...draft_order?.line_items,
+        ...update_order?.line_items,
         product
       ]
     }
@@ -361,11 +356,26 @@ import { shopifyRequest } from "./shopify";
       line_items: [product]
     }
   }
+  const dra_uuid: string = draft_order?.id ? draft_order?.id : "";
 
   // Update FB Doc 
-  const order = await updateDocument(merchant_uuid, "draft_orders", draft_order?.id as string, update_order);
+  const customerDoc = await updateDocument(merchant_uuid, "customers", cus_uuid, {
+    ...customer,
+    ...update_order,
+    subscriptions: [...subs, subscription.id],
+
+  });
+  console.log(" => [UPDATED DOCUMENT] - Customer:");
+  functions.logger.info(customerDoc);
+  console.log(dra_uuid);
+
+  console.log(" => [PRE_FLIGHT] - ");
+  functions.logger.info(update_order);
+
+  // Update FB Doc 
+  const order = await updateDocument(merchant_uuid, "draft_orders", dra_uuid, update_order);
   console.log(" => [UPDATED DOCUMENT] - Order:");
-  console.log(order);
+  functions.logger.info(order);
 
   // Check if Sub to Stripe was OK
   if (customerDoc === undefined || order === undefined) {

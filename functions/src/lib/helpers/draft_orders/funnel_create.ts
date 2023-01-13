@@ -14,7 +14,8 @@ export const handleSuccessPayment = async (
     STRIPE_PI: string,
     STRIPE_PM: string,
     shipping: Address | null,
-    high_risk: boolean
+    high_risk: boolean,
+    bump?: boolean
 ) => {
     let status = 500, text = "ERROR: Likey internal problems 🤷🏻‍♂️. ";
 
@@ -27,7 +28,7 @@ export const handleSuccessPayment = async (
     
     let draft_orders_uuid = "";
     
-    setTimeout( async () => {
+    setTimeout(async () => {
         if (STRIPE_PI !== "") {
             functions.logger.info(" ==> [STRIPE_PI] - Exists");
 
@@ -51,6 +52,7 @@ export const handleSuccessPayment = async (
                     line_items: [
                         {
                             ...product,
+                            price: Number(product.price)
                         }
                     ],
                     addresses: [
@@ -66,10 +68,34 @@ export const handleSuccessPayment = async (
                     email: email,
                     customer_id: id,
                     type: funnel_uuid && funnel_uuid !== "" ? "FUNNEL" : "STORE",
-                    current_total_price: product.price,
+                    current_total_price: bump ? Number(product.price) + 399 : Number(product.price),
                     store_type: shopif_uuid && shopif_uuid !== "" ? "SHOPIFY" : "IMPOWERED",
                     gateway: funnel_uuid && funnel_uuid !== "" ? "SQUARE" : "STRIPE",
                 } as DraftOrder; 
+
+                if (bump) {
+                    draft_data = {
+                        ...draft_data,
+                        line_items: [
+                            ...draft_data.line_items,
+                            {
+                                title: "Rush & Ensure",
+                                price: 399,
+                                compare_at_price: 0,
+                                quantity: 1,
+                                options1: "",
+                                options2: "",
+                                options3: "",
+                                variant_id: "",
+                                product_id: "",
+                                high_risk: false,
+                                sku: "",
+                                handle: "",
+                                weight: 0
+                            }
+                        ],
+                    }
+                }
     
                 if (funnel_uuid && funnel_uuid !== "") {
                     console.log(" ==> [FUNNEL UUID] - Create Draft Order 📦");
@@ -102,6 +128,8 @@ export const handleSuccessPayment = async (
             const total_spent = (customer?.total_spent ? Number(customer?.total_spent) : 0);
             const total_orders = (customer?.total_orders ? Number(customer?.total_orders) : 0);
 
+            const bump_price = bump ? Number(product.price) + 399 : Number(product.price);
+
             try {
                 functions.logger.info(" ==> [CUSTOMER] - Update");
                 // Data to push to the primary DB
@@ -116,10 +144,10 @@ export const handleSuccessPayment = async (
                         PM: STRIPE_PM,
                         CLIENT_ID: ""
                     },
-                    total_spent: total_spent + product.price,
+                    total_spent: total_spent + Number(bump_price),
                     total_orders: total_orders + 1,
-                    total_aov: (total_spent + product.price) / (total_orders + 1)
-                }
+                    total_aov: (total_spent + Number(bump_price)) / (total_orders + 1)
+                };
                 console.log(update_data);
 
                 // update customer document from main DB
@@ -140,7 +168,7 @@ export const handleSuccessPayment = async (
         } else {
             text = text + " PAYMENT METHOD NOT FOUND";
         }
-    }, 2000);
+    }, 1000);
 
     return {
         status: status,

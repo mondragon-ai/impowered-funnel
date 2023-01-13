@@ -8,6 +8,7 @@ import { getToday } from "../lib/helpers/date";
 import { validateKey } from "./auth";
 import { Customer } from "../lib/types/customers";
 import { Funnel } from "../lib/types/funnels";
+import { Address } from "../lib/types/addresses";
 // import * as crypto from "crypto";
 
 export const customerRoute = (
@@ -87,7 +88,9 @@ export const customerRoute = (
             id?: string,
             STRIPE_UUID?: string,
             STRIPE_PI_UID?: string, 
-            STRIPE_CLIENT_ID?: string
+            STRIPE_CLIENT_ID?: string,
+            shipping?: Address[],
+            payment_exists?: boolean
         } = {};
 
         // Customer Data
@@ -107,7 +110,9 @@ export const customerRoute = (
                     id: response?.customers?.cus_uuid ? response.customers.cus_uuid : response.customers.id ? response.customers.id : "",
                     STRIPE_UUID: response?.customers?.stripe?.UUID ? response?.customers?.stripe?.UUID  : "",
                     STRIPE_PI_UID: response?.customers?.stripe?.PI_UUID ? response?.customers?.stripe?.PI_UUID  : "", 
-                    STRIPE_CLIENT_ID: response?.customers?.stripe?.CLIENT_ID ? response?.customers?.stripe?.CLIENT_ID : ""
+                    STRIPE_CLIENT_ID: response?.customers?.stripe?.CLIENT_ID ? response?.customers?.stripe?.CLIENT_ID : "",
+                    shipping: response?.customers ? response?.customers?.addresses : [],
+                    payment_exists: response?.customers?.stripe?.PM ? false : true
                 };
 
                 customer = {

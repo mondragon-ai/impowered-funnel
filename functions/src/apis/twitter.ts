@@ -30,7 +30,7 @@ const twitterClient = new twitter.TwitterApi({
 });
 
 
-const callbackURL = 'http://127.0.0.1:5001/impowered-funnel/us-central1/funnel/callback';
+const callbackURL = 'https://us-central1-impowered-funnel.cloudfunctions.net/funnel/twitter/callback';
 
 
 export const twitterRoutes = (app: express.Router) => {
@@ -124,7 +124,7 @@ export const twitterRoutes = (app: express.Router) => {
         
         const nextTweet = await divinciRequests("/completions", "POST", {
             model: "text-davinci-003",
-            prompt: "tweet something cool for #techtwitter. this is also my first tweet of my twitter journey",
+            prompt: prompt,
             temperature: 0.9,
             max_tokens: 150,
             frequency_penalty: 0,

@@ -15,7 +15,7 @@ export const HEADERS_ADMIN = {
 };
 
 // Create URL
-export const URL = "https://shophodgetwins.myshopify.com/admin/api/2022-07/"; 
+export const URL = "https://shophodgetwins.myshopify.com/admin/api/2022-07/";
   
 /**
  * Initial request function for the 
@@ -179,6 +179,39 @@ async function checkStatus(r: any, e: string) {
     } catch (error) { return undefined; }
   } else { return undefined; }
 };
+
+
+/**
+ * Helper Fn - Fetch orders from shopify
+ * @param order_number - string
+ * @param sku - string
+ * @returns - Design[] || undefined
+ */
+export async function fetchOrders(order_number: string) {
+
+  // If order Number exists
+  if (order_number && order_number !== "") { 
+    try {
+      // If email is with an existing user, then search the email 
+      const response:Response = await shopifyRequest(
+        `orders.json?name=${order_number}&status=any`, 
+        "GET"
+      );
+
+      const order = await response.json()
+
+      console.log(" ====> [SHOPIFY] - Documents Fetched");
+      return order;
+      
+    } catch (error) {
+      return undefined;
+    }
+  } 
+  return undefined;
+};
+
+
+
 
 // /**
 //  *  Helper Fn - STEP #5

@@ -14,7 +14,7 @@ export const checkoutRoutes = (app: express.Router) => {
      * Checkout route
      */
      app.post("/checkout/quick", validateKey, async (req: express.Request, res: express.Response) => {
-        functions.logger.info(" =====> [FUNNEL CHECKOUT]")
+        functions.logger.info(" =====> [FUNNEL CHECKOUT] - Started ✅")
         let status = 500,
             text = "[ERROR]: Likey internal problems 🤷🏻‍♂️. ",
             ok = false,
@@ -65,7 +65,8 @@ export const checkoutRoutes = (app: express.Router) => {
         let result = ""
 
         // Calculate bump order
-        const price = bump ? (399 + product.price) : product.price;
+        const price = product.price ? Number(product.price) : 0;
+        const bump_price = bump ? (399 + price) : price;
 
         if (high_risk) {
             functions.logger.info(" =====> [HIGH RISK]")
@@ -86,12 +87,17 @@ export const checkoutRoutes = (app: express.Router) => {
                 price,
                 product,
                 shipping,
-                high_risk);
+                high_risk,
+                bump);
         }
 
+        functions.logger.debug("[BUMP] =>");
+        functions.logger.debug(bump_price);
+
+
         if (result !== "") {
-            functions.logger.info(" =====> [ANALYTICS UPDATE]");
-            await updateFunnelCheckout(merchant_uuid, funnel_uuid, price);
+            functions.logger.info(" =====> [ANALYTICS UPDATE] - Checkout");
+            await updateFunnelCheckout(merchant_uuid, funnel_uuid, bump_price);
             status = 200;
             ok = true;
             text = "[SUCCESS]: Transaction ID -> " + result;

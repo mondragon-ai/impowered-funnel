@@ -65,7 +65,8 @@ export const paymentsRoutes = (app: express.Router) => {
                 product?.price,
                 product,
                 null,
-                high_risk);
+                high_risk,
+                false);
 
         } catch (e) {
             functions.logger.info(text + " - Charging Stripe | square");
@@ -163,9 +164,9 @@ export const paymentsRoutes = (app: express.Router) => {
     })
 
     app.post("/payments/quick-sub", validateKey, async (req: express.Request, res: express.Response) => {
-        functions.logger.info(" ====> [PAYMENT CREATE] - Started ")
+        functions.logger.info(" ====> [PAYMENTS] - Started Quick Sub ✅")
         let status = 500,
-            text = "[ERROR]: Likey internal problems 🤷🏻‍♂️. ",
+            text = " 🚨 [ERROR]: Likey internal problems 🤷🏻‍♂️. ",
             ok = false;
 
         // Items from funnel checkout page
@@ -176,8 +177,18 @@ export const paymentsRoutes = (app: express.Router) => {
             product
         } = req.body
 
+        let customer: Customer = {} as Customer;
+
         // Customer Doc
-        const customer: Customer = (await getDocument(merchant_uuid, "customers", cus_uuid)).data as Customer;
+        const res_customer = await getDocument(merchant_uuid, "customers", cus_uuid);
+
+        if (res_customer.status < 300 && res_customer.data) {
+            customer = res_customer.data as Customer;
+            status = 200;
+            text = "[SUCCESS]: Customer Fetched";
+            ok = true;
+        }
+
         let draft_order: DraftOrder = {} as DraftOrder;
 
         // Logging
@@ -185,31 +196,41 @@ export const paymentsRoutes = (app: express.Router) => {
 
         try {
             console.log(customer.draft_orders)
-            draft_order = (await getDocument(merchant_uuid, "draft_orders", customer.draft_orders)).data as DraftOrder;
+            const res_draft_order = await getDocument(merchant_uuid, "draft_orders", customer.draft_orders);
+
+            if (res_draft_order.status < 300 && res_draft_order.data) {
+                draft_order = res_draft_order.data as DraftOrder;
+                status = 200;
+                text = text + " - Draft Order Fetched";
+                ok = true;
+            }
         } catch (e) {
             text = text + " - fetching draft order";
         };
 
-
         // Logging
-        functions.logger.info("[DRAFT_ORDER] - Fetched:");
+        functions.logger.info("[PRICE]");
 
-        const price = (product as LineItem) ? (product as LineItem).price : 100;
+        const price = (product as LineItem) ? (product as LineItem).price : 0;
+        functions.logger.info(price);
 
-        try {
-            const result = await handleSubscription(customer, merchant_uuid, draft_order, price);
-            console.log("[SUCCESS]: Cutomer charged & subbed 👽 ");
-            console.log(result);
-            status = 200;
-            text = "[SUCCESS]: Cutomer charged & subbed 👽 ";
-            
-        } catch (e) {
-            text = text + " - Stripe Sub"
+        if (draft_order) {
+            try {
+                const result = await handleSubscription(customer, merchant_uuid, draft_order, price);
+                console.log(result);
+                status = 200;
+                text = "[SUCCESS]: Cutomer charged & subbed 👽 ";
+                ok = true;
+                console.log(text);
+                
+            } catch (e) {
+                text = text + " - Stripe Sub doesnt exist"
+                functions.logger.info(text);
+            }
+
+            // Update  analytics
+            await updateFunnelSubPurchase(merchant_uuid, funnel_uuid, price);
         }
-
-        // Update  analytics
-        await updateFunnelSubPurchase(merchant_uuid, funnel_uuid, price)
-
 
         res.status(status).json({
             ok: ok,

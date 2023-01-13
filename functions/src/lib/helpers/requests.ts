@@ -181,14 +181,14 @@ export const divinciRequests = async (
             body: JSON.stringify(data),
             headers: open_normal_HEADERS
         })
-        text = "SUCCESS: Uploaded to this route (open AI) -> " + resource, 
+        text = "[SUCCESS]: Uploaded to this route (open AI) -> " + resource, 
         status = 200;
     } else {
         response = await fetch(open_URL + resource, {
             method: "GET",
             headers: open_normal_HEADERS
         })
-        text = "SUCCESS: Uploaded to this route (open AI) -> " + resource, 
+        text = "[SUCCESS]: Uploaded to this route (open AI) -> " + resource, 
         status = 200;
     }
 
@@ -199,9 +199,7 @@ export const divinciRequests = async (
         text = " - Fetched " + resource, 
         status = 200;
     }
-    functions.logger.debug("\n\n\n ====> Outputs");
-    functions.logger.debug(response);
-    functions.logger.debug(result);
+    functions.logger.debug("\n\n\n ====> Outputs - " + response.status);
 
     return {
         text,

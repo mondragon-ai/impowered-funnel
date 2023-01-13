@@ -10,6 +10,8 @@ import * as Tasks from "@google-cloud/tasks";
  export const sendOrder = async (merchant_uuid:string, dra_uuid: string, cus_uuid: string) => {
     // ? Toggle log 
     functions.logger.info(" ==> [TIMER] - Outside Timer");
+    functions.logger.info(dra_uuid);
+    functions.logger.info(cus_uuid);
 
     // Create a client.
     const client = new Tasks.v2.CloudTasksClient();
@@ -36,7 +38,7 @@ import * as Tasks from "@google-cloud/tasks";
         })).toString("base64")
       },
       scheduleTime: {
-        seconds: 1 * 60 + Date.now() / 1000,
+        seconds: (7 * 60) + Date.now() / 1000,
       }
     };
 

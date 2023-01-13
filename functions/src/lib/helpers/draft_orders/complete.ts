@@ -1,7 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { DraftOrder } from "../../types/draft_rders";
-import { createDocument, deleteDocument, getDocument } from "../firestore";
+import { createDocumentWthId, deleteDocument, getDocument } from "../firestore";
 import { createShopifyOrder } from "../shopify";
 
 export const completeDraftOrder = async (
@@ -32,7 +32,7 @@ export const completeDraftOrder = async (
     }
 
     try {
-        await createDocument(merchant_uuid, "orders", "ord_" + dra_uuid.substring(4), {
+        await createDocumentWthId(merchant_uuid, "orders", "ord_" + dra_uuid.substring(4), {
             ...draftOrder,
             created_at: admin.firestore.Timestamp.now(),
             updated_at: admin.firestore.Timestamp.now()

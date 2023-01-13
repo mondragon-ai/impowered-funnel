@@ -11,12 +11,14 @@ import { Funnel } from "../../types/funnels";
 export const updateAnalyticsOnOrderSuccess = async (
     store_data: Analytics | null,
     funnel_data: FunnelAnalytics | null,
-    current_total_price: number,
+    current_total: number,
     line_items: LineItem[],
     TODAY: string,
     funnel_uuid: string,
     MERCHANT_UUID: string,
 ) => {
+
+    const current_total_price = current_total ? Number(current_total) : 0;
 
     const funnel = funnel_data !== null ? funnel_data as FunnelAnalytics : null;
 
@@ -45,12 +47,13 @@ export const updateAnalyticsOnOrderSuccess = async (
 
             if (top_sellers.length > 0) {
                 top_sellers.forEach((item) => {
+                    functions.logger.info(" ===> [LINE_ITEM]: " + li.title + "_" + item.title);
                     if (li.title == item.title) {
                         list = [
                             ...list,
                             {
                                 title: item.title,
-                                total_orders: item.total_orders + 1,
+                                total_orders: Number(item.total_orders) + 1,
                             } 
                         ];
                     };
@@ -66,12 +69,14 @@ export const updateAnalyticsOnOrderSuccess = async (
             }
 
         });
+        functions.logger.info(" ===> [LINE_ITEM]: ");
+        functions.logger.info(list);
 
         await updateDocument(MERCHANT_UUID, "analytics", TODAY, {
             ...store_data,
             total_daily_orders: total_daily_orders + 1,
             daily_aov: new_aov,
-            total_funnel_orders:  funnel_uuid ? (store_data.total_funnel_orders + current_total_price) : (store_data.total_funnel_orders) ? (store_data.total_funnel_orders) : 1,
+            total_funnel_orders:  funnel_uuid ? (store_data.total_funnel_orders + 1) : (store_data.total_funnel_orders) ? (store_data.total_funnel_orders) : 1,
             total_funnel_sales: funnel_uuid ? (store_data.total_funnel_sales + current_total_price) : (store_data.total_funnel_sales) ? store_data.total_funnel_sales : current_total_price,
             total_daily_sales: (total_daily_sales + current_total_price as number),
             top_sellers: list,
@@ -377,24 +382,45 @@ export const updateFunnelSubPurchase = async (
                     total_sales: price,
                     total_aov: price,
                     steps: funnel?.steps ? funnel?.steps.map((step, i) => {
-                        return (
-                            {
-                                name: step.name,
-                                page_views: 0,
-                                unique_page_views: 0,
-                                opt_ins: 0,
-                                opt_in_rate: 0,
-                                sales_count: 0,
-                                sales_rate: 0,
-                                sales_value: 0,
-                                recurring_count: 1,
-                                recurring_value: price,
-                                earnings: price,
-                                earnings_unique: price,
-                                painted: false,
-                                order: i ? (i + 1) : 1,
-                            }
-                        )
+                        if (step.name == "UPSELL") {
+                            return (
+                                {
+                                    name: step.name,
+                                    page_views: 0,
+                                    unique_page_views: 0,
+                                    opt_ins: 0,
+                                    opt_in_rate: 0,
+                                    sales_count: 0,
+                                    sales_rate: 0,
+                                    sales_value: 0,
+                                    recurring_count: 1,
+                                    recurring_value: price,
+                                    earnings: price,
+                                    earnings_unique: price,
+                                    painted: false,
+                                    order: i ? (i + 1) : 1,
+                                }
+                            )
+                        } else {
+                            return (
+                                {
+                                    name: step.name,
+                                    page_views: 0,
+                                    unique_page_views: 0,
+                                    opt_ins: 0,
+                                    opt_in_rate: 0,
+                                    sales_count: 0,
+                                    sales_rate: 0,
+                                    sales_value: 0,
+                                    recurring_count: 1,
+                                    recurring_value: price,
+                                    earnings: price,
+                                    earnings_unique: price,
+                                    painted: false,
+                                    order: i ? (i + 1) : 1,
+                                }
+                            )
+                        }
                     }) : [],
                     updated_at: admin.firestore.Timestamp.now(),
                     created_at: admin.firestore.Timestamp.now(),

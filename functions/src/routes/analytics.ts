@@ -223,7 +223,7 @@ export const analyticRoutes = (app: express.Router) => {
     })
 
     app.post("/analytics/page_views", validateKey ,async (req: express.Request, res: express.Response) => {
-        console.log("[FUNNEL] - Start Routes ✅");
+        console.log("[ANALYTICS] - Page Views Started ✅");
         let status = 500, text = " 🚨 [ERROR]: Likley internal problem 😿 ";
 
         let MERCHANT_UUID = req.body.merchant_uuid;
@@ -249,7 +249,7 @@ export const analyticRoutes = (app: express.Router) => {
         }
         const pv: string[][] = req.body.page_view;
         console.log("[FUNNEL] - Data");
-        console.log(result);
+        functions.logger.debug(result);
 
         try {
             let update: FunnelAnalytics = {
@@ -260,15 +260,12 @@ export const analyticRoutes = (app: express.Router) => {
 
             pv.forEach(pair => {
                 // const n = Number.isNaN(result?.[pair[1]]) ? 0 : result?.[pair[1]] == undefined ? 0 :  result?.[pair[1]];
-                console.log(pair)
 
                 update = {
                     ...update,
                     steps: update.steps && update.steps.map(s => {
                         if (s.name === pair[0]) {
-                            console.log("===> PAIR[0] - " + pair[0] + " - " + s.name)
                             if ("page_views" === pair[1]) {
-                                console.log("===> PAIR[0] - " + pair[1])
                                 return {
                                     ...s,
                                     page_views: s.page_views ?  s.page_views + 1 : 1,
@@ -276,7 +273,6 @@ export const analyticRoutes = (app: express.Router) => {
                                 }
                             }
                             if ("unique_page_views" === pair[1]) {
-                                console.log("===> PAIR[0] - " + pair[1])
                                 return {
                                     ...s,
                                     unique_page_views:  (s.unique_page_views ?  s.unique_page_views + 1 : 1),
@@ -289,13 +285,13 @@ export const analyticRoutes = (app: express.Router) => {
                 }
             });
             console.log("[FUNNEL] - Update Data");
-            console.log(update);
+            functions.logger.debug(update);
 
             console.log("[MERCHANT_UUID] - ");
-            console.log(MERCHANT_UUID);
+            functions.logger.debug(MERCHANT_UUID);
 
-            console.log("[funnel_uuid] - ");
-            console.log(fun_uuid);
+            console.log("[FUN_UUID] - ");
+            functions.logger.debug(fun_uuid);
 
             console.log("[FUNNEL] - Update Analytics");
             const response = await updateFunnelAnalytics(MERCHANT_UUID, fun_uuid, String(TODAY), update);

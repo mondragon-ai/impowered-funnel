@@ -18,6 +18,7 @@ import { subscriptionRoutes } from "./routes/subscriptions";
 import { fulfillmentRoutes } from "./routes/fulfillments";
 import { openAPIRoutes } from "./routes/openAPI";
 import { twitterRoutes } from "./apis/twitter";
+import { podRoutes } from "./routes/pod";
 
 
 export const rest = (db: FirebaseFirestore.Firestore) => {
@@ -75,6 +76,9 @@ export const rest = (db: FirebaseFirestore.Firestore) => {
 
     // Twitter ROutes 
     twitterRoutes(app)
+
+    // POD Routes
+    podRoutes(app)
     
 
     return app

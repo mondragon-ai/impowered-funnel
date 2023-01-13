@@ -40,7 +40,7 @@ export const funnelRoutes = (app: express.Router) => {
 
             // data check && set
             if (response?.status < 300 && response?.data) {
-                result = response?.data?.id;
+                result = "" + response?.data?.id;
             }
             functions.logger.debug(" => Document created");
             
@@ -102,17 +102,17 @@ export const funnelRoutes = (app: express.Router) => {
                 ok = false;
                 functions.logger.error(text);
                 throw new Error(text);
-            }
-
-            functions.logger.debug(" => Ready to push data");
-            functions.logger.debug(" => result (id) - " + result);
-            functions.logger.debug(" => analytics (to create) -  ");
-
-            const response = await createFunnelAnalytics(merchant_uuid, result, String(TODAY), analytics);
-
-            // data check && set
-            if (response?.status < 300 && response?.data) {
-                result = response?.data?.id;
+            } else {
+                functions.logger.debug(" => Ready to push data");
+                functions.logger.debug(" => result (id) - " + result);
+                functions.logger.debug(" => analytics (to create) -  ");
+    
+                const response = await createFunnelAnalytics(merchant_uuid, result, String(TODAY), analytics);
+    
+                // data check && set
+                if (response?.status < 300 && response?.data) {
+                    result = "" + response?.data?.id ;
+                }
             }
             
         } catch (e) {

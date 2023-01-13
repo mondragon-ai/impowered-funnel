@@ -69,7 +69,8 @@ export const createFunnelAnalytics = async (
         .doc(today)
         .set({
             ...data,
-            id: today
+            id: doc_uuid,
+            state: Number(today)
         });
     } catch {
         text = " - Could not create document.";
@@ -81,7 +82,7 @@ export const createFunnelAnalytics = async (
         text: text,
         status: status,
         data: {
-            id: doc_uuid,
+            id: Number(today),
             funnel: response ? response : null
         }
     }
@@ -419,7 +420,6 @@ export const simlpeSearch = async (
     data: any
 ) => {
     // Data for validation in parent
-    console.log("93: Simple Search");
     let text = " - Document found 👍🏻", status = 200;
 
     let result: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null = await db

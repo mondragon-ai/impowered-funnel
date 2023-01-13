@@ -7,6 +7,7 @@ import { createDocument, fetchFunnelAnalytics, getDocument, updateDocument } fro
 import { Customer } from "../lib/types/customers";
 import { Order } from "../lib/types/draft_rders";
 import { FunnelAnalytics, Analytics } from "../lib/types/analytics";
+import { sendThankYouEmail } from "../lib/helpers/twillio";
 // import { SubscriptionAgreement} from "../lib/types/products";
 // import { Fulfillment } from "../lib/types/fulfillments";
 
@@ -244,4 +245,9 @@ export const orderCreated = functions.firestore
         String(TODAY),
         funnel_uuid, 
         merchant_uuid);
+
+    if (customer && customer.email) {
+        await sendThankYouEmail(customer.email);
+    }
+
 });

@@ -15,6 +15,7 @@
   "dependencies": {
     "@google-cloud/scheduler": "^3.1.0",
     "@google-cloud/tasks": "^3.0.5",
+    "@sendgrid/mail": "^7.7.0",
     "@types/cheerio": "^0.22.31",
     "@types/express": "4.17.9",
     "@types/express-serve-static-core": "4.17.14",
