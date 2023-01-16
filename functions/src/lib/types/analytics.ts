@@ -113,4 +113,8 @@ export interface Analytics {
     id?: string,
     updated_at: FirebaseFirestore.Timestamp,
     created_at: FirebaseFirestore.Timestamp,
+    orders: {
+        date: string,
+        value: number
+    }[]
 }

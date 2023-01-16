@@ -34,7 +34,8 @@ export const updateAnalyticsOnOrderSuccess = async (
             total_daily_orders,
             total_daily_sales,
             top_sellers,
-            total_daily_checkouts
+            total_daily_checkouts,
+            orders
         } = store_data as Analytics;
 
         const new_aov = ((total_daily_sales ? total_daily_sales : 0) + current_total_price) / ((total_daily_orders ? total_daily_orders : 0) + 1);
@@ -93,6 +94,11 @@ export const updateAnalyticsOnOrderSuccess = async (
             total_funnel_sales: funnel_uuid ? (store_data.total_funnel_sales + current_total_price) : (store_data.total_funnel_sales) ? store_data.total_funnel_sales : current_total_price,
             total_daily_sales: (total_daily_sales + current_total_price as number),
             top_sellers: list,
+            orders: [{
+                ...orders,
+                date: admin.firestore.Timestamp.now(),
+                value: current_total_price,
+            }],
             total_daily_checkouts: total_daily_checkouts + 1,
             updated_at: admin.firestore.Timestamp.now()
         });
@@ -140,6 +146,10 @@ export const updateAnalyticsOnOrderSuccess = async (
           prev_daily_checkouts: 0,
           prev_daily_aov: current_total_price,
           total_daily_checkouts: 1,
+          orders: [{
+            date: admin.firestore.Timestamp.now(),
+            value: current_total_price,
+          }],
           total_daily_orders: 0,
           total_funnel_sales: 0,
           total_funnel_orders: 0,
