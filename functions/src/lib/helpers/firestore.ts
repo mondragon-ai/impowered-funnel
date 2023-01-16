@@ -452,14 +452,12 @@ export const searchFunnelAnalytics = async (
     search_data: {start: number, end: number}
 ) => {
 
-    const FS_START =  admin.firestore.Timestamp.fromDate(new Date(search_data.start));
-    const FS_END =  admin.firestore.Timestamp.fromDate(new Date(search_data.end));
     // Data for validation in parent
     console.log("456: Date Range Search");
     functions.logger.info(merchant_uuid);
     functions.logger.info(fun_uuid);
-    console.log(FS_START);
-    console.log(FS_END);
+    console.log(search_data.start);
+    console.log(search_data.end);
     let text = " - Document found 👍🏻", status = 200;
 
     let result: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null = await db
@@ -468,9 +466,9 @@ export const searchFunnelAnalytics = async (
         .collection("funnels")
         .doc(fun_uuid)
         .collection("analytics")
-        .orderBy("id")
-        .where("id", ">=", Number(search_data.start))
-        .where("id", "<=", Number(search_data.end))
+        .orderBy("state")
+        .where("state", ">=", Number(search_data.start))
+        .where("state", "<=", Number(search_data.end))
         .get()
 
     // if (result) {

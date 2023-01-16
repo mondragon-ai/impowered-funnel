@@ -361,7 +361,6 @@ import { shopifyRequest } from "./shopify";
   // Update FB Doc 
   const customerDoc = await updateDocument(merchant_uuid, "customers", cus_uuid, {
     ...customer,
-    ...update_order,
     subscriptions: [...subs, subscription.id],
 
   });

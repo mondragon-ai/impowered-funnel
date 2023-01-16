@@ -125,10 +125,10 @@ export const handleSuccessPayment = async (
                 functions.logger.info(text + " - Creating Cart document in primary DB")
             }
 
-            const total_spent = (customer?.total_spent ? Number(customer?.total_spent) : 0);
-            const total_orders = (customer?.total_orders ? Number(customer?.total_orders) : 0);
+            // const total_spent = (customer?.total_spent ? Number(customer?.total_spent) : 0);
+            // const total_orders = (customer?.total_orders ? Number(customer?.total_orders) : 0);
 
-            const bump_price = bump ? Number(product.price) + 399 : Number(product.price);
+            // const bump_price = bump ? Number(product.price) + 399 : Number(product.price);
 
             try {
                 functions.logger.info(" ==> [CUSTOMER] - Update");
@@ -144,9 +144,6 @@ export const handleSuccessPayment = async (
                         PM: STRIPE_PM,
                         CLIENT_ID: ""
                     },
-                    total_spent: total_spent + Number(bump_price),
-                    total_orders: total_orders + 1,
-                    total_aov: (total_spent + Number(bump_price)) / (total_orders + 1)
                 };
                 console.log(update_data);
 

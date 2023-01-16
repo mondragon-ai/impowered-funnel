@@ -111,6 +111,6 @@ export interface Analytics {
         id: string
     }[]
     id?: string,
-    updated_at: any,
-    created_at: any,
+    updated_at: FirebaseFirestore.Timestamp,
+    created_at: FirebaseFirestore.Timestamp,
 }

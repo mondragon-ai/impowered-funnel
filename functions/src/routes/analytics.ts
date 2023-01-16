@@ -4,7 +4,7 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { getToday } from '../lib/helpers/date';
 import { createDocumentWthId, createFunnelAnalytics, fetchFunnelAnalytics, getDocument, searchAnalytics, searchFunnelAnalytics, updateFunnelAnalytics } from '../lib/helpers/firestore';
-import { Analytics, FunnelAnalytics } from '../lib/types/analytics';
+import { Analytics, FunnelAnalytics, TopSellers } from '../lib/types/analytics';
 import { Funnel } from '../lib/types/funnels';
 import { Product } from '../lib/types/products';
 import { validateKey } from './auth';
@@ -365,7 +365,12 @@ export const analyticRoutes = (app: express.Router) => {
                     top_sellers: [],
                 } as Analytics;
 
-                let top_sellers: {title: string, total_orders: number}[] = []
+                // let top_sellers: {title: string, total_orders: number}[] = []
+                let top_sellers: TopSellers[] = [];
+                let searched_orders: {
+                    date: string,
+                    value: number, 
+                }[] = []
 
                 response.data.list.forEach(date => {
                     const analytic_date = date.data() as Analytics;
@@ -409,35 +414,118 @@ export const analyticRoutes = (app: express.Router) => {
                             daily_checkout_rate: analytics.total_daily_orders ?  analytics.total_daily_orders +  analytic_date.total_daily_orders :  analytics.total_daily_orders,
                         } as Analytics;
 
-                        analytic_date.top_sellers.forEach(top => {
-                            if (top_sellers.length > 0) {
-                                top_sellers.forEach(t => {
-                                    if (t.title === top.title) {
-                                        top_sellers = [
-                                            ...top_sellers,
-                                            {
-                                                title: top.title,
-                                                total_orders: t.total_orders && top.total_orders ? t.total_orders + top.total_orders : 1
-                                            }
-                                        ]
-                                    }
-                                })
-                            } else {
-                                top_sellers = [
-                                    ...top_sellers,
-                                    {
-                                        title: top.title,
-                                        total_orders: 1
-                                    }
-                                ]
+
+                        analytic_date.top_sellers.forEach((li) => {
+                            let isNew = true;
+
+                            top_sellers.forEach((item) => {
+                                functions.logger.info(" ===> [LINE_ITEM]: " + li.title + "_" + item.title);
+                                if (li.title == item.title) {
+                                    item.total_orders = Number(item.total_orders) + Number(li.total_orders);
+                                    isNew = false;
+                                }
+                            });
+
+                            if (isNew) {
+                                top_sellers.push({
+                                    title: li.title,
+                                    total_orders: Number(li.total_orders),
+                                });
                             }
+
+                        });
+
+                        searched_orders.push({
+                            date: analytic_date.created_at.toDate().toDateString(),
+                            value: analytic_date.total_daily_sales, 
                         })
+
+                        // analytic_date.top_sellers.forEach((li, i) => {
+                        //     let isNew = true;
+
+
+                        //     if (list.length > 0) {
+                        //         list.forEach((item) => {
+                        //             functions.logger.info(" ===> [LINE_ITEM]: " + li.title + "_" + item.title);
+                        //             if (li.title == item.title) {
+                        //                 list = [
+                        //                     ...list,
+                        //                     {
+                        //                         title: item.title,
+                        //                         total_orders: Number(item.total_orders) + li.total_orders,
+                        //                     } 
+                        //                 ];
+                        //                 isNew = false;
+                        //             }
+                        //         });
+                        //     } else {
+                        //         list = [
+                        //             ...list,
+                        //             {
+                        //                 title: li.title,
+                        //                 total_orders: li.total_orders,
+                        //             } 
+                        //         ];
+                        //         isNew = false;
+                        //     };
+
+                        //     if (isNew) {
+                        //         list = [
+                        //             ...list,
+                        //             {
+                        //                 title: li.title,
+                        //                 total_orders: li.total_orders,
+                        //             } 
+                        //         ];
+                        //     }
+
+                        // });
+
+                        // analytic_date.top_sellers.forEach(top => {
+                        //     let isNew = true;
+                        //     functions.logger.debug(` 💵 [TOP_SELLERS] -  [${top.title}]`);
+
+                        //     if (top_sellers.length > 0) {
+                        //         top_sellers.forEach(t => {
+                        //             functions.logger.debug(` 💵 [TOP_SELLERS] -  [${top.title}] === [${t.title}]`)
+                        //             if (t.title === top.title) {
+                        //                 top_sellers = [
+                        //                     ...top_sellers,
+                        //                     {
+                        //                         title: top.title,
+                        //                         total_orders: t.total_orders && top.total_orders ? t.total_orders + top.total_orders : 1
+                        //                     }
+                        //                 ]
+                        //                 isNew = false;
+                        //             } 
+                        //         })
+                        //     } else {
+                        //         functions.logger.debug(` 💵 [TOP_SELLERS] -  [DOESNT EXIST]`)
+                        //         top_sellers = [
+                        //             {
+                        //                 title: top.title,
+                        //                 total_orders: top.total_orders
+                        //             }
+                        //         ]
+                        //     }
+
+                        //     if (isNew) {
+                        //         top_sellers = [
+                        //             ...top_sellers,
+                        //             {
+                        //                 title: top.title,
+                        //                 total_orders: top.total_orders
+                        //             }
+                        //         ]
+                        //     };
+                        // })
                     }
                 })
 
                 analytics = {
                     ...analytics,
-                    top_sellers: top_sellers
+                    top_sellers: top_sellers,
+                    orders: searched_orders,
                 }
 
                 status = 200;
@@ -476,7 +564,7 @@ export const analyticRoutes = (app: express.Router) => {
                 let steps: any[] = [];
 
                 let opt_in = {
-                    name: "",
+                    name: "OPT_IN",
                     page_views: 0,
                     unique_page_views:0,
                     opt_ins:0,
@@ -490,7 +578,7 @@ export const analyticRoutes = (app: express.Router) => {
                     earnings_unique:0
                 };
                 let downsell = {
-                    name: "",
+                    name: "DOWNSELL",
                     page_views: 0,
                     unique_page_views:0,
                     opt_ins:0,
@@ -504,7 +592,7 @@ export const analyticRoutes = (app: express.Router) => {
                     earnings_unique:0
                 };
                 let upsell = {
-                    name: "",
+                    name: "UPSELL",
                     page_views: 0,
                     unique_page_views:0,
                     opt_ins:0,
@@ -518,7 +606,7 @@ export const analyticRoutes = (app: express.Router) => {
                     earnings_unique:0
                 };
                 let confirmed = {
-                    name: "",
+                    name: "CONFIRMED",
                     page_views: 0,
                     unique_page_views:0,
                     opt_ins:0,
@@ -536,6 +624,7 @@ export const analyticRoutes = (app: express.Router) => {
                     total_sales: 0,
                     total_aov: 0,
                     total_orders: 0,
+                    total_earnings: 0,
                     steps: steps
                 } as FunnelAnalytics
 
@@ -543,11 +632,13 @@ export const analyticRoutes = (app: express.Router) => {
                     const analytic_date = date.data() as FunnelAnalytics;
                     const id = date.id;
                     console.log(id);
+                    
 
                     if (Number(id) >= search_data.start && Number(id) <= search_data.end ) {
                         functions.logger.info("[FOUND] - Inside SINGLE DAY ✅");
-                        const total =  analytics.total_sales ?  analytics.total_sales + analytic_date.total_sales : analytic_date.total_sales;
-                        const orders = analytics.total_orders ?  analytics.total_orders + analytic_date.total_orders : analytic_date.total_orders
+
+                        const total =  analytics.total_sales ?  Number(analytics.total_sales) + Number(analytic_date.total_sales) : Number(analytic_date.total_sales);
+                        const orders = analytics.total_orders ?  Number(analytics.total_orders) + Number(analytic_date.total_orders) : Number(analytic_date.total_orders)
     
     
                         // let steps: any[] = [];
@@ -651,6 +742,7 @@ export const analyticRoutes = (app: express.Router) => {
                             if (step.name === "OPT_IN") {
                                 opt_in = {
                                     ...step,
+                                    ...opt_in,
                                     name: step.name || "OPT_IN",
                                     page_views: opt_in.page_views ? (opt_in.page_views + step.page_views) : step.page_views,
                                     unique_page_views: opt_in.unique_page_views ? (opt_in.unique_page_views + step.unique_page_views) : step.unique_page_views,
@@ -668,6 +760,7 @@ export const analyticRoutes = (app: express.Router) => {
                             if (step.name === "UPSELL") {
                                 upsell = {
                                     ...step,
+                                    ...upsell,
                                     name: step.name || "UPSELL",
                                     page_views: upsell.page_views ? (upsell.page_views + step.page_views) : step.page_views,
                                     unique_page_views: upsell.unique_page_views ? (upsell.unique_page_views + step.unique_page_views) : step.unique_page_views,
@@ -685,6 +778,7 @@ export const analyticRoutes = (app: express.Router) => {
                             if (step.name === "DOWNSELL") {
                                 downsell = {
                                     ...step,
+                                    ...downsell,
                                     name: step.name || "DOWNSELL",
                                     page_views: downsell.page_views ? (downsell.page_views + step.page_views) : step.page_views,
                                     unique_page_views: upsell.unique_page_views ? (downsell.unique_page_views + step.unique_page_views) : step.unique_page_views,
@@ -702,6 +796,7 @@ export const analyticRoutes = (app: express.Router) => {
                             if (step.name === "CONFIRMED") {
                                 confirmed = {
                                     ...step,
+                                    ...confirmed,
                                     name: step.name || "CONFIRMED",
                                     page_views: confirmed.page_views ? (confirmed.page_views + step.page_views) : step.page_views,
                                     unique_page_views: confirmed.unique_page_views ? (confirmed.unique_page_views + step.unique_page_views) : step.unique_page_views,
@@ -723,20 +818,43 @@ export const analyticRoutes = (app: express.Router) => {
                             total_sales: total,
                             total_aov: total / orders,
                             total_orders: orders,
+                            total_earnings: total ? (total / Number(opt_in.page_views)) : 0,
                         } as FunnelAnalytics
 
                     }
                 });
 
-                steps = [
-                    opt_in,
-                    upsell,
-                    confirmed
-                ];
+
+                if (opt_in.page_views > 0) {
+                    steps = [
+                        ...steps,
+                        opt_in
+                    ];
+                }
+
+                if (upsell.page_views > 0) {
+                    steps = [
+                        ...steps,
+                        upsell
+                    ];
+                }
+
+                if (downsell.page_views > 0) {
+                    steps = [
+                        ...steps,
+                        downsell
+                    ];
+                }
+
+                if (confirmed.page_views > 0) {
+                    steps = [
+                        ...steps,
+                        confirmed
+                    ];
+                }
 
                 analytics = {
                     ...analytics,
-                    total_earnings: analytics.total_sales ? (analytics.total_sales / opt_in.page_views) : analytics.total_sales ? analytics.total_sales : 0,
                     steps: steps
                 } as FunnelAnalytics
 
@@ -748,6 +866,64 @@ export const analyticRoutes = (app: express.Router) => {
         }
         console.log("[ANALYTICS] ✅");
         console.log(analytics);
+
+        let funnel: Funnel = {} as Funnel;
+
+        if (analytics === null) {
+            try {
+    
+                console.log("[GET] - Funnel Document");
+                const response = await getDocument(merchant_uuid,"funnels",fun_uuid);
+    
+                console.log(response);
+                if (response.status < 300 && response.data !== null) {
+                    funnel = response.data as Funnel;
+                    status = 200;
+                    text = "[SUCCESS]: Created Successfullly"
+                }
+                
+            } catch (e) {
+                text = text + " - Fetching Funnel doc"
+            }
+    
+    
+            if (funnel?.steps && funnel?.steps?.length <= 0) {
+                text = " 🚨 [ERROR]: Steps necessary to create a funnel";
+                status = 400;
+                functions.logger.error(text);
+                throw new Error(text);
+            } else {
+                functions.logger.debug(" => Steps exist");
+                functions.logger.debug(funnel?.steps.length);
+    
+                analytics = {
+                    total_orders: 0,
+                    total_sales: 0,
+                    total_aov: 0,
+                    steps: funnel.steps.map((step, i) => {
+                        return {
+                            name: step.name,
+                            page_views: 0,
+                            unique_page_views: 0,
+                            opt_ins: 0,
+                            opt_in_rate: 0,
+                            sales_count: 0,
+                            sales_rate: 0,
+                            sales_value: 0,
+                            recurring_count: 0,
+                            recurring_value: 0,
+                            earnings: 0,
+                            earnings_unique: 0,
+                            painted: false,
+                            order: i + 1
+                        }
+                    }),
+                    updated_at: admin.firestore.Timestamp.now(),
+                    created_at: admin.firestore.Timestamp.now(),
+                } as any
+    
+            }
+        }
         
 
         res.status(status).json({

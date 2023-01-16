@@ -43,7 +43,7 @@ export const updateAnalyticsOnOrderSuccess = async (
         let list: TopSellers[] = [];
 
         line_items.forEach((li, i) => {
-
+            let isNew = true;
 
             if (top_sellers.length > 0) {
                 top_sellers.forEach((item) => {
@@ -56,9 +56,22 @@ export const updateAnalyticsOnOrderSuccess = async (
                                 total_orders: Number(item.total_orders) + 1,
                             } 
                         ];
-                    };
+                        isNew = false;
+                    }
                 });
             } else {
+                list = [
+                    ...list,
+                    {
+                        title: li.title,
+                        total_orders: 1,
+                    } 
+                ];
+                isNew = false;
+            }
+
+
+            if (isNew) {
                 list = [
                     ...list,
                     {
@@ -159,15 +172,19 @@ export const updateAnalyticsOnOrderSuccess = async (
         let total_initial_views = 0;
         functions.logger.info(" ====> [INITAL VIEWS] - " + total_initial_views);
 
+
         let analytics = {
             ...funnel,
             steps: funnel?.steps ? funnel?.steps.map(step => {
+                const earnings = (step.sales_value ? Number(step.sales_value) : step.recurring_value ? Number(step.recurring_value) : 0) / (step.page_views ? Number(step.recurring_value) : 1);
+                const unique = (step.sales_value ? Number(step.sales_value) : step.recurring_value ? Number(step.recurring_value) : 0) / (step.page_views ? Number(step.page_views ): 1);
+
                 if (step.name === "OPT_IN") {total_initial_views = step.page_views};
                 return (
                     {
                         ...step,
-                        earnings: (step.sales_value ? step.sales_value : step.recurring_value ? step.recurring_value : 1) / (step.page_views ? step.page_views : 1),
-                        earnings_unique: (step.sales_value ? step.sales_value : step.recurring_value ? step.recurring_value : 1) / (step.page_views ? step.page_views : 1),
+                        earnings: earnings,
+                        earnings_unique: unique,
                     }
                 )
             }) : [],
