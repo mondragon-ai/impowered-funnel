@@ -178,6 +178,7 @@ import { shopifyRequest } from "./shopify";
     let STRIPE_PI = "";
     let STRIPE_PM = "";
 
+    const p = Number(price) && Number(price) > 0 ? Number(price) : 0;
     async function getMethod() {
       return new Promise( (resolve) => {
         return setTimeout(async () => {
@@ -211,7 +212,7 @@ import { shopifyRequest } from "./shopify";
         
             // * Make the initial Stripe charge based on product price
             const paymentIntent = await stripe.paymentIntents.create({
-              amount: price,
+              amount: bump ? p + 399 : p,
               currency: 'USD',
               customer: STRIPE_UUID,
               payment_method: STRIPE_PM,

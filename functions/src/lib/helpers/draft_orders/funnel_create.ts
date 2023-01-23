@@ -3,7 +3,7 @@ import { DraftOrder, LineItem } from "../../types/draft_rders";
 import * as crypto from "crypto"
 import * as admin from "firebase-admin"
 import * as functions from "firebase-functions"
-import { createDocument, updateDocument } from "../firestore";
+import { createDocument, getDocument, updateDocument } from "../firestore";
 import { sendOrder } from "./timeCompletion";
 import { createShopifyCustomer } from "../shopify";
 import { Customer } from "../../types/customers";
@@ -19,6 +19,7 @@ export const handleSuccessPayment = async (
 ) => {
     let status = 500, text = "ERROR: Likey internal problems 🤷🏻‍♂️. ";
 
+    // TODO: Refactor to be used as LineItem[] instead of Product
     const {
         email,
         id,
@@ -100,11 +101,39 @@ export const handleSuccessPayment = async (
                 if (funnel_uuid && funnel_uuid !== "") {
                     console.log(" ==> [FUNNEL UUID] - Create Draft Order 📦");
 
-                    // Create Draft Order
-                    const draftOrder = await createDocument(merchant_uuid, "draft_orders", "dra_", draft_data);
-        
-                    if (draftOrder.status < 300) { 
-                        draft_orders_uuid = draftOrder?.data?.id
+                    if (customer.draft_orders === "") {
+
+                        // Create Draft Order
+                        const draftOrder = await createDocument(merchant_uuid, "draft_orders", "dra_", draft_data);
+            
+                        if (draftOrder.status < 300) { 
+                            draft_orders_uuid = draftOrder?.data?.id
+                        }
+
+                    } else {
+
+                        const repsonse = await getDocument(merchant_uuid, "draft_orders",  customer.draft_orders);
+
+                        if (repsonse.status < 300 && repsonse.data) {
+                            const customer = repsonse.data as Customer;
+                            const LI = customer.line_items ? customer.line_items : [];
+
+                            draft_data = {
+                                ...draft_data,
+                                line_items: [
+                                    ...draft_data.line_items,
+                                    ...LI
+                                ],
+                                updated_at: admin.firestore.Timestamp.now()
+                            }
+
+                            // Create Draft Order
+                            const draftOrder = await updateDocument(merchant_uuid, "draft_orders", customer.draft_orders , draft_data);
+                
+                            if (draftOrder.status < 300) { 
+                                draft_orders_uuid = customer.draft_orders;
+                            }
+                        }
                     }
 
                 } else {
@@ -113,22 +142,12 @@ export const handleSuccessPayment = async (
                     // Create Order
                     await createDocument(merchant_uuid, "orders", "ord_", draft_data);
 
-                    // TODO: Logic layer to check if Merchant has a "access" for merchant
-        
-                    // if (order.status < 300) { 
-                    //     order_uuid = order?.data?.id
-                    // }
                 }
                     
     
             } catch (e) {
                 functions.logger.info(text + " - Creating Cart document in primary DB")
             }
-
-            // const total_spent = (customer?.total_spent ? Number(customer?.total_spent) : 0);
-            // const total_orders = (customer?.total_orders ? Number(customer?.total_orders) : 0);
-
-            // const bump_price = bump ? Number(product.price) + 399 : Number(product.price);
 
             try {
                 functions.logger.info(" ==> [CUSTOMER] - Update");
@@ -139,24 +158,49 @@ export const handleSuccessPayment = async (
                     updated_at: admin.firestore.Timestamp.now(),
                     draft_orders: draft_orders_uuid,
                     shopify_uuid: shopif_uuid,
-                    stripe: {
-                        ...customer?.stripe,
-                        PM: STRIPE_PM,
-                        CLIENT_ID: ""
-                    },
                 };
+
+                if (high_risk) {
+                    update_data = {
+                        ...customer,
+                        funnel_uuid: "",
+                        updated_at: admin.firestore.Timestamp.now(),
+                        draft_orders: draft_orders_uuid,
+                        shopify_uuid: shopif_uuid,
+                        square: {
+                            ...customer?.square,
+                            UUID: "",
+                            PM: STRIPE_PM,
+                        },
+                    };
+                } else {
+                    update_data = {
+                        ...customer,
+                        funnel_uuid: "",
+                        updated_at: admin.firestore.Timestamp.now(),
+                        draft_orders: draft_orders_uuid,
+                        shopify_uuid: shopif_uuid,
+                        stripe: {
+                            ...customer?.stripe,
+                            PM: STRIPE_PM as string,
+                            CLIENT_ID: ""
+                        },
+                    };
+                }
                 console.log(update_data);
 
-                // update customer document from main DB
-                const result = await updateDocument(merchant_uuid, "customers", id, update_data);
-                console.log(result);
-    
-                if (result.status < 300) {
-                    status = 200;
-                    text = "[SUCCESS]: " + result.text
-                    console.log(" ===> [FUNNEL UUID] - Start Timer ");
-                    if (funnel_uuid && funnel_uuid !== "") sendOrder(merchant_uuid, draft_orders_uuid, id);
-                } 
+                if (draft_orders_uuid !== "") {
+                    // update customer document from main DB
+                    const result = await updateDocument(merchant_uuid, "customers", id, update_data);
+                    console.log(result);
+        
+                    if (result.status < 300) {
+                        status = 200;
+                        text = "[SUCCESS]: " + result.text
+                        console.log(" ===> [FUNNEL UUID] - Start Timer ");
+                        if (funnel_uuid && funnel_uuid !== "") sendOrder(merchant_uuid, draft_orders_uuid, id);
+                    } 
+                }
             
             } catch (e) {
                 functions.logger.info(text)

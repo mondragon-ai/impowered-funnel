@@ -55,7 +55,7 @@ const HEADERS =  {
     'Authorization': "Bearer " + process.env.SQUARE_ACCESS_TOKEN,
 }
 
-export const impoweredRequest = async (
+export const squareRequest = async (
     resource: string,
     method: string,
     data: any

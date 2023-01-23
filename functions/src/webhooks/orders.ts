@@ -85,6 +85,7 @@ export const orderCreated = functions.firestore
             await updateDocument(merchant_uuid, "customers", customer_id as string, {
                 ...customer,
                 orders: orders,
+                draft_orders: "",
                 total_orders: customer?.total_orders && customer?.total_orders > 0 ? customer?.total_orders + 1 : 1,
                 total_spent: customer?.total_spent && customer?.total_spent > 0 ? customer?.total_spent + current_total_price : current_total_price,
                 last_order: {
@@ -247,7 +248,7 @@ export const orderCreated = functions.firestore
         merchant_uuid);
 
     if (customer && customer.email) {
-        await sendThankYouEmail(customer.email);
+        await sendThankYouEmail(customer.email, line_items);
     }
 
 });

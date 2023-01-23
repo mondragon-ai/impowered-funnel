@@ -73,30 +73,32 @@ export const createCustomerPayment = async (
     try {
         if (high_risk && high_risk) {
             functions.logger.debug(" ===> [HIGH_RISK]");
+            if (customers.length === 0 && cus_uuid === "") {
 
-            const square = await createSquareCustomer({
-                note: "CUSTOM FUNNEL",
-                given_name: update_data?.first_name,
-                family_name: update_data?.first_name,
-                email_address: update_data?.email
-            });
-            functions.logger.debug(" ===> [SQUARE]");
+                const square = await createSquareCustomer({
+                    note: "CUSTOM FUNNEL",
+                    given_name: update_data?.first_name,
+                    family_name: update_data?.first_name,
+                    email_address: update_data?.email
+                });
+                functions.logger.debug(" ===> [SQUARE]");
+    
+                // Data to push to the primary DB
+                update_data = {
+                    ...update_data,
+                    square: {
+                        ...(update_data?.square ? update_data?.square : {}),
+                        UUID: square?.customer && square?.customer?.id ? square?.customer.id  : "",
+                        PM: ""
+                    },
+                }
+                functions.logger.debug(" ===> [SQAURE UDPATE]");
+    
+                text = "[SUCCESS] Square Created";
+                status = 201;
+            } else {
 
-            // Data to push to the primary DB
-            update_data = {
-                ...update_data,
-                square: {
-                    ...(update_data?.square ? update_data?.square : {}),
-                    UUID: square?.customer && square?.customer?.id ? square?.customer.id  : "",
-                    PI_UUID: "", 
-                    CARD_UUID: "", 
-                    CLIENT_ID: "", 
-                },
             }
-            functions.logger.debug(" ===> [SQAURE UDPATE]");
-
-            text = "[SUCCESS] Square Created";
-            status = 201;
         } else {
             functions.logger.debug(" ===> ![HIGH_RISK]");
             // Stripe customer created 

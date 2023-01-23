@@ -109,7 +109,6 @@ export const customerRoute = (
                     ...result,
                     id: response?.customers?.cus_uuid ? response.customers.cus_uuid : response.customers.id ? response.customers.id : "",
                     STRIPE_UUID: response?.customers?.stripe?.UUID ? response?.customers?.stripe?.UUID  : "",
-                    STRIPE_PI_UID: response?.customers?.stripe?.PI_UUID ? response?.customers?.stripe?.PI_UUID  : "", 
                     STRIPE_CLIENT_ID: response?.customers?.stripe?.CLIENT_ID ? response?.customers?.stripe?.CLIENT_ID : "",
                     shipping: response?.customers ? response?.customers?.addresses : [],
                     payment_exists: response?.customers?.stripe?.PM ? false : true

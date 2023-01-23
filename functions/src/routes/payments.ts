@@ -4,11 +4,23 @@ import { handleStripeCharge, handleSubscription } from "../lib/helpers/stripe";
 import { Customer } from "../lib/types/customers";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { impoweredRequest } from "../lib/helpers/requests";
+import { squareRequest } from "../lib/helpers/requests";
 import * as crypto from "crypto";
 import { DraftOrder, LineItem, Order } from "../lib/types/draft_rders";
 import { updateFunnelSubPurchase } from "../lib/helpers/analytics/update";
 import { validateKey } from "./auth";
+import { Address } from "../lib/types/addresses";
+
+export type SquareBody = {
+    sourceId: string, 
+    cus_uuid: string,
+    billing: Address,
+    merchant_uuid: string,
+    name: {
+        first_name: string,
+        last_name: string,
+    }
+}
 
 export const paymentsRoutes = (app: express.Router) => {
     app.post("/payments/quick-buy", async (req: express.Request, res: express.Response) => {
@@ -56,7 +68,7 @@ export const paymentsRoutes = (app: express.Router) => {
             functions.logger.info(text + " - Fetching DB User")
         }
 
-        let result = ''
+        let result = '';
         
         try {
             // Make initial charge
@@ -96,7 +108,7 @@ export const paymentsRoutes = (app: express.Router) => {
         })
     });
 
-    app.post("/payments/square", async (req: express.Request, res: express.Response) => {
+    app.post("/payments/quick-buy/square", async (req: express.Request, res: express.Response) => {
         let s = 500,
         t = "ERROR: LIkely internal problem 👽";
 
@@ -105,10 +117,13 @@ export const paymentsRoutes = (app: express.Router) => {
         functions.logger.info(" TOKEN => " + sourceId);
         functions.logger.info(" LOCATION => " + locationId);
 
+        // TODO: Fetch customer data for Square 
+
+
         try {
             functions.logger.debug('Storing card');
     
-            const idempotencyKey = crypto.randomBytes(16);
+            const idempotencyKey = crypto.randomBytes(16).toString('hex');
             const cardReq = {
                 idempotency_key: "" + idempotencyKey,
                 amount_money: {
@@ -117,7 +132,7 @@ export const paymentsRoutes = (app: express.Router) => {
                 },
                 source_id: "" + sourceId,
                 autocomplete: true,
-                customer_id: "PG2DN7DBJ55YBY7YX2P4NQAHV4",
+                customer_id: "N1TH0YGN3HH8GF9BWH7BVXG9CC",
                 location_id: "" + locationId,
                 reference_id: "123456",
                 note: "TEST",
@@ -127,14 +142,13 @@ export const paymentsRoutes = (app: express.Router) => {
                 }
               };
     
-            const test = await impoweredRequest("/customers", "", null);
+            const test = await squareRequest("/customers", "", null);
 
             // Logging
             functions.logger.info('Store Card succeeded!', test);
             
-    
             // Logging
-            const {text, status, data} = await impoweredRequest("/payments", "POST", cardReq);
+            const {text, status, data} = await squareRequest("/payments", "POST", cardReq);
     
             // Logging
             functions.logger.info('Store Card succeeded!', { text, status });
@@ -160,6 +174,152 @@ export const paymentsRoutes = (app: express.Router) => {
         res.status(s).json({
             text: t,
             data: null
+        })
+    })
+
+    app.post("/payments/square", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(' ✅ [STARTED] -> Square Payment');
+        let s = 500,
+            t = " 🚨 [ERROR]: LIkely internal problem 👽",
+            ok = false;
+
+        const {
+            sourceId,
+            cus_uuid,
+            billing,
+            merchant_uuid,
+        } = req?.body as SquareBody;
+
+        let customer = {} as Customer;
+
+        let SQURE_PM = "";
+        let SQURE_PI = "";
+        functions.logger.info('Storing card');
+        functions.logger.info(" TOKEN => " + sourceId);
+        functions.logger.info(" CUS_UUID => " + cus_uuid);
+
+        // TODO: Fetch customer data for Square 
+        try {
+
+            const response = await getDocument(merchant_uuid, "customers", cus_uuid)
+
+            if (response.status < 300 && response.data) {
+                customer = response.data as Customer
+            }
+            
+        } catch (e) {
+            functions.logger.debug('Storing card');
+        }
+
+
+        try {
+    
+            const idempotencyKey = crypto.randomBytes(16).toString('hex');
+            // const cardReq = {
+            //     idempotency_key: "" + idempotencyKey,
+            //     amount_money: {
+            //       amount: 100,
+            //       currency: "USD"
+            //     },
+            //     source_id: "" + sourceId,
+            //     autocomplete: true,
+            //     customer_id: "N1TH0YGN3HH8GF9BWH7BVXG9CC",
+            //     location_id: "" + locationId,
+            //     reference_id: "123456",
+            //     note: "TEST",
+            //     app_fee_money: {
+            //       amount: 10,
+            //       currency: "USD"
+            //     }
+            //   };
+
+            const cardReq = {
+                idempotency_key: "" + idempotencyKey,
+                source_id: "" + sourceId,
+                card: {
+                    billing_address: {
+                        address_line_1: billing.line1 ?  billing.line1 : "",
+                        address_line_2: billing.line2 ?  billing.line2 : "",
+                        locality: billing.city ?  billing.city : "",
+                        administrative_district_level_1: billing.state ?  billing.state : "",
+                        postal_code: billing.zip ?  billing.zip : "",
+                        country: billing.country ?  billing.country : "",
+                    },
+                    cardholder_name: (customer.first_name ? customer.first_name : "") + " " + (customer.last_name ? customer.last_name : ""),
+                    customer_id: customer.square?.UUID,
+                    reference_id: merchant_uuid
+                }
+            };
+            
+
+            if (customer.square?.UUID !== "") {
+                // Store user card POSTing to /cards -> new source_id
+                const {text, status, data} = await squareRequest("/cards", "POST", cardReq);
+    
+                // Logging
+                functions.logger.info('Store Card succeeded!', { text, status });
+
+                SQURE_PM = data?.card?.id ? data.card.id : ""
+
+            }
+            
+        } catch (ex) {
+            functions.logger.error(t);
+        }
+
+        try {
+
+            if (customer.square?.UUID !== "") {
+                const new_key = crypto.randomBytes(16).toString('hex');
+                // const {text, status, data} = await squareRequest("/payments", "POST", cardReq);
+                const payment_response = await squareRequest("/payments", "POST", {
+                    idempotency_key: "" + new_key,
+                    amount_money: {
+                        amount: 200,
+                        currency: "USD"
+                    },
+                    source_id: SQURE_PM,
+                    autocomplete: true,
+                    customer_id: customer.square?.UUID,
+                    location_id: customer.square?.location,
+                    reference_id: merchant_uuid,
+                });
+                functions.logger.info('Payment Success!', payment_response);
+                SQURE_PI = payment_response.data?.payment?.id ? payment_response.data.payment.id : ""
+            }
+        } catch (e) {
+            
+        }
+
+        customer = {
+            ...customer,
+            square: {
+                ...customer.square,
+                PM: SQURE_PM
+            },
+            orders: [
+                ...customer.orders,
+                SQURE_PI
+            ]
+        }
+
+        try {
+            if (SQURE_PM !== "" && customer.id !== "") {
+                const response = await updateDocument(merchant_uuid, "customers", cus_uuid, customer);
+
+                if (response.status < 300 && response.data) {
+                    t = " 👍🏻 [SUCCESS]: " + " Card stored && updated graciously!";
+                    s = 200
+                    ok = true
+                }
+            }
+        } catch (e) {
+            functions.logger.error(t);
+        }
+        res.status(s).json({
+            text: t,
+            data: null,
+            ok: ok
         })
     })
 

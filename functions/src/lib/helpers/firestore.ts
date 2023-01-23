@@ -616,6 +616,26 @@ export const getDocument = async (
 }
 
 
+export const getMerchant = async (
+    merchant_uuid: string,
+) => {
+    // Data for validation in parent
+    console.log("118: Get Mercahnt --------------------- ");
+    let text = " - Document found 👍🏻", status = 200;
+
+    let result: FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>  = await db
+    .collection("merchants")
+    .doc(merchant_uuid)
+    .get();
+
+    return {
+        text: result.exists ? text : " - Document NOT found 👎🏻 ",
+        status: result.exists ? status : 400,
+        data: result.exists ? result.data() : undefined
+    }
+}
+
+
 export const deleteDocument = async (
     merchant_uuid: string,
     collection: string,
@@ -696,3 +716,5 @@ export const deleteDocument = async (
 //         }
 //     }
 // }
+
+

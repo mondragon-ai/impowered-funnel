@@ -45,20 +45,18 @@ export interface Customer {
     ip_address?: string,
     ORDER_STARTED?: boolean,
     stripe?: {
-        UUID: string,
-        PI_UUID: string, 
-        CLIENT_ID: string,
         PM?: string
+        UUID?: string,
+        CLIENT_ID: string,
     },
     square?: {
-        UUID: string,
-        PI_UUID: string,
-        CARD_UUID: string,
-        CLIENT_ID: string,
+        PM: string,
+        UUID?: string,
+        location?: string
     },
     created_at?: FirebaseFirestore.Timestamp,
     updated_at: FirebaseFirestore.Timestamp,
-    line_items?: LineItem,
+    line_items?: LineItem[],
     addresses: Address[],
     orders: string[],
     draft_orders: string,
