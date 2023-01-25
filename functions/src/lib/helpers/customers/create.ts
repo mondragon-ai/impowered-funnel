@@ -1,4 +1,4 @@
-import { Customer, } from "../../types/customers";
+import { Customer, LastOrder, } from "../../types/customers";
 import { createDocument, simlpeSearch, updateDocument } from "../firestore";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
@@ -12,7 +12,7 @@ export const createCustomerPayment = async (
     data: Customer,
     high_risk: boolean
 ) => {
-    let status = 500, text = "[ERROR]: Likley internal issue 🤡. ";
+    let status = 500, text = " 🚨 [ERROR]: Likley internal issue 🤡. ";
 
     // logic vars
     let cus_uuid = "";
@@ -22,7 +22,7 @@ export const createCustomerPayment = async (
     // Check email first if exists else create new 👇🏻👇🏻👇🏻
     try {
         if ( data.email != "") {
-            functions.logger.debug(" ====> [EMAIL]");
+            functions.logger.debug(" ❷ [SEARCHING] -  Checking if Exists with Email");
             // Search the collection for existing email 
             const cusList = await simlpeSearch(merchant_uuid, "customers", "email", data.email);
             
@@ -38,21 +38,31 @@ export const createCustomerPayment = async (
                 update_data = {
                     ...customers[0]
                 };
-                text = "[SUCCESS] Customer already exists";
+                text = " 🎉 [SUCCESS] Customer already exists";
                 status = 200;
             }
         }
-        functions.logger.debug((" ===> [CUSTOMER CHECKED] - ") + (cus_uuid ? cus_uuid  : "DOESNT EXIST."));
+        functions.logger.debug((" ❷ [CUSTOMER CHECKED] - ") + (cus_uuid ? cus_uuid  : "DOESNT EXIST."));
 
     } catch (e) {
-        functions.logger.error("46: " + text + " - Checking emails" )
+        functions.logger.error("48:  ❷ " + text + " - Checking emails" )
     }
-
 
     // Data to push to the primary DB
     update_data = {
         ...data,
         ...update_data,
+        addresses: [],
+        shopify_uuid: "",
+        tags: [],
+        status: false,
+        accepts_SMS: false,
+        accepts_email: true,
+        ip_address: "",
+        notes: "",
+        orders: [],
+        last_order: {} as LastOrder,
+        draft_orders: update_data.draft_orders ?  update_data.draft_orders : "",
         created_at: admin.firestore.Timestamp.now(),
         updated_at: admin.firestore.Timestamp.now(),
         funnel_uuid: funnel_uuid ? funnel_uuid : "",
@@ -71,8 +81,8 @@ export const createCustomerPayment = async (
     }
 
     try {
-        if (high_risk && high_risk) {
-            functions.logger.debug(" ===> [HIGH_RISK]");
+        if (high_risk) {
+            functions.logger.debug(" ❷ [HIGH_RISK] -  Creating Sqaure && Returning UUID");
             if (customers.length === 0 && cus_uuid === "") {
 
                 const square = await createSquareCustomer({
@@ -81,7 +91,7 @@ export const createCustomerPayment = async (
                     family_name: update_data?.first_name,
                     email_address: update_data?.email
                 });
-                functions.logger.debug(" ===> [SQUARE]");
+                functions.logger.debug(" ❷ [SQUARE] - Customer Created 👍🏻");
     
                 // Data to push to the primary DB
                 update_data = {
@@ -92,18 +102,16 @@ export const createCustomerPayment = async (
                         PM: ""
                     },
                 }
-                functions.logger.debug(" ===> [SQAURE UDPATE]");
-    
-                text = "[SUCCESS] Square Created";
+                text = " 🎉 [SUCCESS] Square Created";
                 status = 201;
             } else {
 
             }
         } else {
-            functions.logger.debug(" ===> ![HIGH_RISK]");
+            functions.logger.debug(" ❷ [HIGH_RISK]- Stripe Data && Returning UUID");
             // Stripe customer created 
             if (customers.length === 0 && cus_uuid === "") {
-                functions.logger.debug(" ===> [CREATE] - Stripe Customer 🕺🏼");
+                functions.logger.debug(" ❷ [STRIPE] -  Create Stripe Customer 🕺🏼");
                 const stripe = await createStripeCustomer(update_data?.email, update_data?.first_name, update_data?.last_name);
             
                 // OK result & New Document
@@ -119,12 +127,11 @@ export const createCustomerPayment = async (
                     }
                 }
             } else {
-                functions.logger.debug(" ===> [PRE_FLIGHT] -> ");
+                functions.logger.debug(" ❷ [PRE_FLIGHT] -> ");
                 functions.logger.debug(update_data);
-                functions.logger.debug(" ===> [CREATE] - Stripe Client Secret 🔑");
                 const stripe = await createSripeClientSecret(update_data.stripe?.UUID as string);
             
-                functions.logger.debug(" ===> [RESULT] - Stripe Client Secret 🔑");
+                functions.logger.debug(" ❷ [STRIPE] - Created Stripe Client Secret 🔑");
                 functions.logger.debug(stripe);
                 // OK result & New Document
                 if (stripe?.status < 300) {
@@ -138,9 +145,8 @@ export const createCustomerPayment = async (
                     }
                 }
             }
-            functions.logger.debug(" ===> [STRIPE UDPATE]");
 
-            text = "[SUCCESS] Stripe Created";
+            text = " 🎉 [SUCCESS] Stripe Created";
             status = 201;
         }
 
@@ -150,11 +156,11 @@ export const createCustomerPayment = async (
 
     try {
         if (customers.length !== 0 && cus_uuid !== "")  {
-            functions.logger.debug(" ===> [CUSTOMER EXISTS] 👍🏻");
+            functions.logger.debug(" ❷ [CUSTOMER] - Exists - ONLY UPDATE 👍🏻");
 
             // push to primary DB --> Creating new customer document
             const response = await updateDocument(merchant_uuid, "customers", cus_uuid, update_data)
-            functions.logger.debug(" ===> [UPDATE RESPONSE] - Customer");
+            functions.logger.debug(" ❷ [CUSTOMER] - Updated");
 
             if (response.status < 300 && response.data) {
                 const c = response.data as Customer
@@ -165,12 +171,12 @@ export const createCustomerPayment = async (
             }
 
             // Responses back to the client
-            text = "[SUCCESS] Stripe Created - Updated document";
+            text = " 🎉 [SUCCESS] Stripe Created - Updated document";
             status = 201;
         } else {
-            functions.logger.debug(" ===> [CUSTOMER CREATE] 🆕");
+            functions.logger.debug(" ❷ [CUSTOMER] - Creaete New Customer 🆕");
             const response = await createDocument(merchant_uuid, "customers", "cus_", update_data);
-            functions.logger.debug(" ====> [CREATE RESPONSE] - Customer");
+            functions.logger.debug(" ❷ [CUSTOMER] - Created Response");
             functions.logger.debug(response);
 
             if (response.status < 300 && response.data) {

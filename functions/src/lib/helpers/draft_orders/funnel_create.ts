@@ -15,9 +15,10 @@ export const handleSuccessPayment = async (
     STRIPE_PM: string,
     shipping: Address | null,
     high_risk: boolean,
-    bump?: boolean
+    bump?: boolean,
+    external?: "SHOPIFY" | "BIG_COMMERCE" | ""
 ) => {
-    let status = 500, text = "ERROR: Likey internal problems 🤷🏻‍♂️. ";
+    let status = 500, text = " 🚨 [ERROR]: Likey internal problems 🤷🏻‍♂️. ";
 
     // TODO: Refactor to be used as LineItem[] instead of Product
     const {
@@ -28,20 +29,28 @@ export const handleSuccessPayment = async (
     } = customer
     
     let draft_orders_uuid = "";
+    let shopif_uuid = "";
+
+    // Calculate price
+    const price = product.price  && Number(product.price) > 0 ? Number(product.price) : 100;
     
     setTimeout(async () => {
-        if (STRIPE_PI !== "") {
-            functions.logger.info(" ==> [STRIPE_PI] - Exists");
+        if (STRIPE_PI !== "" && id !== "") {
+            functions.logger.info(" ❸ [STRIPE] - Payment Intent was Successfull && Customer Exists");
 
-            const shopify = await createShopifyCustomer(shipping as Address, email);
-            let shopif_uuid = ""
+            if (external === "SHOPIFY") {
 
-            if (shopify != undefined) {
-                const result = JSON.parse(JSON.stringify(shopify));
-
-                if (result.customers[0] && result.customers[0].id != "") {
-                    shopif_uuid = result.customers[0].id;
+                const shopify = await createShopifyCustomer(shipping as Address, email);
+    
+                if (shopify != undefined) {
+                    const result = JSON.parse(JSON.stringify(shopify));
+    
+                    if (result.customers[0] && result.customers[0].id != "") {
+                        functions.logger.info(" ❹ [SHOPIFY] - External UUID Created");
+                        shopif_uuid = result.customers[0].id;
+                    }
                 }
+    
             }
     
             try {
@@ -53,7 +62,7 @@ export const handleSuccessPayment = async (
                     line_items: [
                         {
                             ...product,
-                            price: Number(product.price)
+                            price: Number(price)
                         }
                     ],
                     addresses: [
@@ -66,10 +75,10 @@ export const handleSuccessPayment = async (
                     created_at: admin.firestore.Timestamp.now(),
                     transaction_id: STRIPE_PI,
                     fullfillment_status: "HOLD",
-                    email: email,
-                    customer_id: id,
+                    email: email ? email : "",
+                    customer_id: id ? id : "",
                     type: funnel_uuid && funnel_uuid !== "" ? "FUNNEL" : "STORE",
-                    current_total_price: bump ? Number(product.price) + 399 : Number(product.price),
+                    current_total_price: bump ? Number(price) + 399 : Number(price),
                     store_type: shopif_uuid && shopif_uuid !== "" ? "SHOPIFY" : "IMPOWERED",
                     gateway: funnel_uuid && funnel_uuid !== "" ? "SQUARE" : "STRIPE",
                 } as DraftOrder; 
@@ -99,22 +108,28 @@ export const handleSuccessPayment = async (
                 }
     
                 if (funnel_uuid && funnel_uuid !== "") {
-                    console.log(" ==> [FUNNEL UUID] - Create Draft Order 📦");
+                    functions.logger.info(" ❸ [DRAFT_ORDER] - Funnel UUID Exists. Creating Draft Order 📦");
+                    functions.logger.info(" ❸ [funnel_uuid] - > " + funnel_uuid);
+                    functions.logger.info(" ❸ [draft_orders] - > " + customer.draft_orders);
+                    functions.logger.info(" ❸ [draft_orders_uuid] - > " + draft_orders_uuid);
 
                     if (customer.draft_orders === "") {
+                        functions.logger.info(" ❸ [DRAFT_ORDER] - Create Draft Order 📦");
 
                         // Create Draft Order
                         const draftOrder = await createDocument(merchant_uuid, "draft_orders", "dra_", draft_data);
             
-                        if (draftOrder.status < 300) { 
+                        if (draftOrder.status < 300) {
+                            functions.logger.info(" ❹ [DRAFT_ORDER] - Draft Order Created 📦");
                             draft_orders_uuid = draftOrder?.data?.id
                         }
 
                     } else {
-
-                        const repsonse = await getDocument(merchant_uuid, "draft_orders",  customer.draft_orders);
+                        functions.logger.info(" ❸ [DRAFT_ORDER] - Fetch Draft Order 📦");
+                        const repsonse = await getDocument(merchant_uuid, "draft_orders",  customer.draft_orders ? customer.draft_orders : draft_orders_uuid);
 
                         if (repsonse.status < 300 && repsonse.data) {
+                            functions.logger.info(" ❸ [DRAFT_ORDER] - Draft Order Fetched 📦");
                             const customer = repsonse.data as Customer;
                             const LI = customer.line_items ? customer.line_items : [];
 
@@ -126,31 +141,33 @@ export const handleSuccessPayment = async (
                                 ],
                                 updated_at: admin.firestore.Timestamp.now()
                             }
+                            functions.logger.info(" ❸ [DRAFT_ORDER] - Update Draft Order 📦");
 
                             // Create Draft Order
-                            const draftOrder = await updateDocument(merchant_uuid, "draft_orders", customer.draft_orders , draft_data);
+                            const draftOrder = await updateDocument(merchant_uuid, "draft_orders", ( customer.draft_orders ? customer.draft_orders : draft_orders_uuid ) , draft_data);
                 
                             if (draftOrder.status < 300) { 
-                                draft_orders_uuid = customer.draft_orders;
+                                functions.logger.info(" ❸ [DRAFT_ORDER] - Draft Order Updated 📦");
+                                draft_orders_uuid = draft_orders_uuid && customer.draft_orders !== "" ? customer.draft_orders : draft_orders_uuid;
                             }
                         }
                     }
 
                 } else {
-                    console.log(" ==> ![FUNNEL UUID] - Create Order 📦");
 
                     // Create Order
                     await createDocument(merchant_uuid, "orders", "ord_", draft_data);
+                    functions.logger.info(" ❸ [ORDER] -  Order Created 📦");
 
                 }
                     
     
             } catch (e) {
-                functions.logger.info(text + " - Creating Cart document in primary DB")
+                functions.logger.error(text + " - Creating Cart document in primary DB")
             }
 
             try {
-                functions.logger.info(" ==> [CUSTOMER] - Update");
+                functions.logger.info(" ❸  [CUSTOMER] - Update Customer 📦");
                 // Data to push to the primary DB
                 let update_data = {
                     ...customer,
@@ -163,10 +180,6 @@ export const handleSuccessPayment = async (
                 if (high_risk) {
                     update_data = {
                         ...customer,
-                        funnel_uuid: "",
-                        updated_at: admin.firestore.Timestamp.now(),
-                        draft_orders: draft_orders_uuid,
-                        shopify_uuid: shopif_uuid,
                         square: {
                             ...customer?.square,
                             UUID: "",
@@ -177,9 +190,6 @@ export const handleSuccessPayment = async (
                     update_data = {
                         ...customer,
                         funnel_uuid: "",
-                        updated_at: admin.firestore.Timestamp.now(),
-                        draft_orders: draft_orders_uuid,
-                        shopify_uuid: shopif_uuid,
                         stripe: {
                             ...customer?.stripe,
                             PM: STRIPE_PM as string,
@@ -187,17 +197,17 @@ export const handleSuccessPayment = async (
                         },
                     };
                 }
-                console.log(update_data);
+                functions.logger.info(update_data);
 
                 if (draft_orders_uuid !== "") {
                     // update customer document from main DB
                     const result = await updateDocument(merchant_uuid, "customers", id, update_data);
-                    console.log(result);
         
                     if (result.status < 300) {
                         status = 200;
-                        text = "[SUCCESS]: " + result.text
-                        console.log(" ===> [FUNNEL UUID] - Start Timer ");
+                        text = " 🎉 [SUCCESS]: " + result.text
+                        console.log("  ❸ [FUNNEL UUID] - Start Timer Order ⏰ ");
+                        functions.logger.info(result);
                         if (funnel_uuid && funnel_uuid !== "") sendOrder(merchant_uuid, draft_orders_uuid, id);
                     } 
                 }
