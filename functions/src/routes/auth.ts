@@ -9,13 +9,12 @@ import { AppSession } from "../lib/types/Sessions";
 export const authRoutes = (app: express.Router) => {
 
     app.post("/sessions/create", async (req: express.Request, res: express.Response) => {
-        functions.logger.debug(' ====> SESSIONS CREATE');
+        functions.logger.debug(' ✅ [SESSIONS] - Start Session Validation Route');
         let text = "ERROR: Likely internal prolem 🔥", status= 500, result: AppSession | any = null;
 
         const merchant_uuid = "50rAgweT9PoQKs5u5o7t"
 
         const API_KEY = generateAPIKey();
-
 
         // let today = new Date().toISOString().split('T')[0];
         let sessions = {
@@ -36,7 +35,7 @@ export const authRoutes = (app: express.Router) => {
             if (response.status < 300) {
                 status = 200
                 text = "SUCCESS: Document app session created"
-                functions.logger.debug("SUCCESS: Document app session created");
+                functions.logger.debug(" 🎉 [SUCCESS]: Document app session created");
             }
 
         } catch (e) {
@@ -64,21 +63,21 @@ export const authRoutes = (app: express.Router) => {
 }
 
 export const validateKey = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    functions.logger.debug(" ===> [SESSIONS VALIDATE]");
-    let text = "[ERROR]: Likely auth problems 🔥", status= 401, account: AppSession | null = null;
+    functions.logger.debug(" ✅ [SESSIONS] - Start Validation Route");
+    let text = " 🚨 [ERROR]: Likely oAuth problem problems. ", status= 401, account: AppSession | null = null;
     let api_key = req.header('impowered-api-key') as string; 
-    functions.logger.debug(" => [API KEY] " + api_key);
+    functions.logger.debug(" ❶ [API KEY] " + api_key);
 
     try {
         const key = xssFilters.inHTMLData(api_key)
         const response = await getSessionAccount(key);
 
         if (response.status < 300) {
-            functions.logger.debug(" => [SESSIONS FOUND]");
+            functions.logger.debug(" 🏦 [SESSIONS FOUND]");
             account = response.data;
         } else {
             text = text + response.text;
-            status= response.status;
+            status = response.status;
         }
 
     } catch (e) {
@@ -97,7 +96,7 @@ export const validateKey = async (req: express.Request, res: express.Response, n
 
             // Validate dev ? LOCALHOST && dev_key ? serve :: err
             if (account.api_key.includes("test_") && api_key !==  account.dev_api_key) {
-                functions.logger.debug(" => Dev host & dev key dont match");
+                functions.logger.debug(" ❶ Dev host & dev key dont match");
                 VALID = false;
                 text = text + " - dev host & dev key dont match"
                 status = 400;
@@ -121,9 +120,9 @@ export const validateKey = async (req: express.Request, res: express.Response, n
 
 
             if (api_key !==  account.api_key) {
-                functions.logger.debug(" =>  wrong key / host match");
+                functions.logger.debug(" ❶ wrong key / host match");
                 VALID = false
-                text = text + `${text} - host & key match`
+                text = text + `${text} - host & key do not match`
                 status = 400;
             } 
 
@@ -133,7 +132,7 @@ export const validateKey = async (req: express.Request, res: express.Response, n
             if (Math.floor((new Date().getTime())) < session_range) {
 
                 if (account.usage.count >= 5) {
-                    functions.logger.debug(" => rate limit hit");
+                    functions.logger.debug(" ❶ rate limit hit");
                     text = text + " - rate limit hit.";
                     VALID = false;
                     status = 400;
@@ -153,7 +152,7 @@ export const validateKey = async (req: express.Request, res: express.Response, n
             }
 
             if (VALID){
-                text = "SUCCESS: Session validated 🤑. "
+                text = " 🎉 [SUCCESS]: Session validated 🔑. "
                 status = 200;
                 await updateSessions(api_key, {
                     ...update_session,
@@ -168,11 +167,12 @@ export const validateKey = async (req: express.Request, res: express.Response, n
                     merchant_uuid: account.merchant_uuid,
                     roles: account.roles
                 };
+                functions.logger.debug(text);
                 return next();
             }
 
     } else {
-        functions.logger.debug("145: " + text);
+        functions.logger.debug("175: " + text);
         status = 403;
         text = text ;
     }

@@ -4,6 +4,7 @@ import * as crypto from "crypto";
 import { Customer } from "../types/customers";
 import { Address } from "../types/addresses";
 import { handleSuccessPayment } from "./draft_orders/funnel_create";
+import { LineItem } from "../types/draft_rders";
 // import { getMerchant } from "./firestore";
 // import { Merchant } from "../types/merchants";
 
@@ -20,7 +21,7 @@ export const createSquareCustomer = async (
 export const handleSquareCharge = async (
     customer: Customer,
     price: number,
-    product: any,
+    product: LineItem,
     shipping: Address | null,
     high_risk: boolean,
     bump: boolean,
@@ -28,20 +29,20 @@ export const handleSquareCharge = async (
   
     const {
       email,
-      id: cus_uuid,
+      id,
       addresses,
     } = customer
   
     const SQAURE_UUID = customer.square ? customer.square.UUID : "";
     const SQAURE_PM = customer.square ? customer.square.PM : "";
   
-    functions.logger.info(" ===> [STRIPE] - Inputs 👇🏻")
-    functions.logger.info(" ===> [STRIPE_UUID]: " + SQAURE_UUID);
-    functions.logger.info(" ===> [EMAIL]: " + email);
+    functions.logger.info(" ❸ [STRIPE] - Inputs 👇🏻 ------------------------------ ")
+    functions.logger.info(" ❸ [STRIPE_UUID]: " + SQAURE_UUID);
+    functions.logger.info(" ❸ [EMAIL]: " + email);
     console.log(product);
-    functions.logger.info(" ===> [CUS_UUID]: " + cus_uuid);
+    functions.logger.info(" ❸ [CUS_UUID]: " + id);
   
-    if (cus_uuid == "" || email == "") {
+    if (id == "" || email == "") {
       return ""
     }
   
@@ -85,8 +86,8 @@ export const handleSquareCharge = async (
                     location_id: LOCATION_ID,
                     reference_id: customer.merchant_uuid
                 });
-                functions.logger.info(" 🏦 [SQAURE] - Response");
-                functions.logger.info(payment_response)
+                functions.logger.info(" ❸ [SQAURE] - Payemnt Response  🏦");
+                console.log(payment_response);
                 if (payment_response.status < 300 && payment_response.data) {
                     SQR_PI = payment_response.data.payment.id;
                 }
@@ -105,7 +106,14 @@ export const handleSquareCharge = async (
   
     let address = shipping;
   
-    if (address != null && SQR_PI !== "" && SQAURE_PM !== "") {
+    if (
+        address != null &&
+        SQR_PI !== "" &&
+        SQAURE_PM !== "" && 
+        typeof product.price == "number" &&
+        product.title !== "" &&
+        (Number(product.variant_id) > 0 || product.variant_id  !== "")
+    ) {
   
       if (addresses && addresses.length > 0) {
         addresses.map(addy => {
@@ -114,7 +122,7 @@ export const handleSquareCharge = async (
           }
         })
       }
-      functions.logger.info(" ✅ [PAYMENT] - Handling payment for order ");
+      functions.logger.info(" ❸ [PAYMENT] - Handling Successful Payment to Create an Order 💰 ");
       handleSuccessPayment(customer, product, SQR_PI, SQAURE_PM, shipping, high_risk, bump);
     } 
   

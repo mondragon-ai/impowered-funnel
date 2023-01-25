@@ -135,9 +135,9 @@ export const checkoutRoutes = (app: express.Router) => {
      * Checkout route
      */
     app.post("/checkout/quick", validateKey, async (req: express.Request, res: express.Response) => {
-        functions.logger.info(" =====> [FUNNEL CHECKOUT] - Started ✅")
+        functions.logger.info(" ✅ [FUNNEL_CHECKOUT] - Route Started ")
         let status = 500,
-            text = "[ERROR]: Likey internal problems 🤷🏻‍♂️. ",
+            text = " 🚨 [ERROR]: Likey internal problems 🤷🏻‍♂️. ",
             ok = false,
             customer: Customer | null = null;
 
@@ -152,46 +152,54 @@ export const checkoutRoutes = (app: express.Router) => {
             shipping
         } = req.body
 
-        try {
 
-            functions.logger.info(" =====> [GET DOC] - Customer")
+        // stripe PI, if complete
+        let result = ""
+
+        if (cus_uuid === "") {
+            throw new Error("NO ID EXISTS");
+        } else {
+        try {
+            functions.logger.info(" ❶ [CUSTOMER] - Get Document 🏦 -> " + cus_uuid);
+
             // fetch usr from DB to get stripe UUID
             const result = await getDocument(merchant_uuid, "customers", cus_uuid);
 
             if (result.status < 300) {
-                customer =  result.data != undefined ? (result.data) as Customer  : null;
-                status = 200;
-                ok = true;
-                text = "[SUCCESS]: " + result.text;
+                // assign data if exists
+                customer =  result.data ? (result.data) as Customer  : null;
             } 
             
         } catch (e) {
-            functions.logger.error(text + " - Fetching DB User")
+            functions.logger.error(text + " - Fetching DB User");
         }
 
         if (customer !== null) {
+            functions.logger.info(" ❶ [CUSTOMER] - Compare Address 🏘️");
+
+            // nomralize data
             const cus = (customer as Customer);
             const addy = cus?.addresses ? cus?.addresses : []
 
+
+            // Check New Address for duplicate in Old Address 
             const new_addy_list = compareAddresses(addy, shipping)
 
+            // New Customer obj with new Addres[]
             customer = { 
                 ...cus,
+                ...customer,
                 funnel_uuid: funnel_uuid,
-                addresses: [
-                    ...new_addy_list
-                ]
+                addresses: new_addy_list.length > 0 ? new_addy_list : []
             }
         }
-
-        let result = ""
 
         // Calculate bump order
         const price = product.price ? Number(product.price) : 0;
         const bump_price = bump ? (399 + price) : price;
 
         if (high_risk) {
-            functions.logger.info(" =====> [HIGH RISK]")
+            functions.logger.info(" ❶ [HIGH__RISK] - Square Update 🤑");
 
             shipping = shipping as Address
 
@@ -219,18 +227,15 @@ export const checkoutRoutes = (app: express.Router) => {
                     bump
                 );
 
-                status = 200;
-                ok = true;
-                text = " ✅ [SUCCESS]:  " + " ";
-
             }
         } else {
-            functions.logger.info(" =====> ![HIGH RISK]")
             // stripe customer 
             await updateStripeCustomer(
                 customer?.first_name as string, 
                 String(customer?.stripe?.UUID),
                 shipping);
+
+            functions.logger.info(" ❶ ![HIGH_RISK] - Stripe Updated 🤑");
 
             // Make initial charge
             result = await handleStripeCharge(
@@ -240,22 +245,24 @@ export const checkoutRoutes = (app: express.Router) => {
                 shipping,
                 high_risk,
                 bump);
+            
+            functions.logger.info(" ❶ ![HIGH_RISK] - Stripe Charged 🤑 -> " + result);
         }
 
-        functions.logger.debug("[BUMP] =>");
+        // Bump Price
+        functions.logger.info(" ❶ ![BUMP] - Bump Price");
         functions.logger.debug(bump_price);
 
-
         if (result !== "") {
-            functions.logger.info(" =====> [ANALYTICS UPDATE] - Checkout");
+            functions.logger.info(" ❶ ![ANALYTICS] - Ready to Update Funnel Analytics && Result Exists ->  " + result);
             await updateFunnelCheckout(merchant_uuid, funnel_uuid, bump_price);
             status = 200;
             ok = true;
-            text = "[SUCCESS]: Transaction ID -> " + result;
+            text = " 🎉 [SUCCESS]: Transaction ID -> " + result;
         } else {
             status = 400;
             ok = false;
-            text = "[ERROR]: " + " - Likley due to charging customer.";
+            text = " 🚨 [ERROR]: " + " - Likley due to charging customer.";
         }
 
         // return to client
@@ -264,6 +271,7 @@ export const checkoutRoutes = (app: express.Router) => {
             ok: ok,
             data: result
         });
+    }
     });
 
     app.post("/checkout/success", async (req: express.Request, res: express.Response) => {

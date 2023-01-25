@@ -71,9 +71,9 @@ export const customerRoute = (
      * Create customer & stripe account, then return client secret
      */
     app.post("/customers/create", validateKey, async (req: express.Request, res: express.Response) => {
-        functions.logger.debug(" =====> [CREATE CUSTOMER] - ✅ Started"); 
+        functions.logger.debug(" ✅ [CUSTOMER] - Started Create Route"); 
         let status = 200,
-            text = "[SUCCESS]: Customer succesffully created",
+            text = "🎉 [SUCCESS]: Customer succesffully created",
             ok = true;
 
         // if valid
@@ -101,8 +101,8 @@ export const customerRoute = (
 
             // Create customer
             const response = await createCustomerPayment(merchant_uuid, funnel_uuid, customer, high_risk);
-            functions.logger.debug(" ====> [CREATE RESPONSE] - Payment");
-            console.log(response?.customers)
+            functions.logger.debug(" ❶ [RESPONSE] - Create Payment ");
+            functions.logger.info(response?.customers)
 
             if (response?.status < 300 && response?.customers) {
                 result = {
@@ -123,7 +123,7 @@ export const customerRoute = (
             }
             
         } catch (e) {
-            text = "[ERROR]: Likely a problem creating a customer.";
+            text = " 🚨 [ERROR]: Likely a problem creating a customer.";
             status = 500;
             ok = false;
             functions.logger.error(text);
@@ -220,8 +220,7 @@ export const customerRoute = (
                         
                         // creat new funnnel_analytics doc
                         const new_fun = await createFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY), update);  
-    
-                        console.log(new_fun)
+                        functions.logger.info(new_fun)
                     }
                 }
 

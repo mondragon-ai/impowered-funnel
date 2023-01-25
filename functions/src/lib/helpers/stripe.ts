@@ -159,7 +159,7 @@ import { shopifyRequest } from "./shopify";
 
     const {
       email,
-      id: cus_uuid,
+      id,
       addresses,
     } = customer
 
@@ -168,10 +168,10 @@ import { shopifyRequest } from "./shopify";
     functions.logger.info(" ===> [STRIPE] - Inputs 👇🏻")
     functions.logger.info(" ===> [STRIPE_UUID]: " + STRIPE_UUID);
     functions.logger.info(" ===> [EMAIL]: " + email);
-    console.log(product);
-    functions.logger.info(" ===> [CUS_UUID]: " + cus_uuid);
+    functions.logger.info(product);
+    functions.logger.info(" ===> [CUS_UUID]: " + id);
 
-    if (cus_uuid == "" || email == "") {
+    if (id == "" || email == "") {
       return ""
     }
 
@@ -220,13 +220,13 @@ import { shopifyRequest } from "./shopify";
               confirm: true,
               receipt_email: email, 
             });
-            functions.logger.info(" ===> [PAYMENT_INTENTION]");
+            functions.logger.info(" ❷ [PAYMENT_INTENTION] -> "  + paymentIntent.id);
       
             STRIPE_PI = paymentIntent.id ? paymentIntent.id : "";
             functions.logger.info(STRIPE_PI);
             
           } catch (e) {
-              functions.logger.info(" ===> 🚨 [ERROR]: " + " - Charging customer - stripe 227");
+              functions.logger.info(" 🚨 [ERROR]" + " ❷ Could not charge customer" );
           }
 
           return resolve(STRIPE_PI as string);
@@ -248,9 +248,8 @@ import { shopifyRequest } from "./shopify";
         })
       }
       handleSuccessPayment(customer, product, STRIPE_PI, STRIPE_PM, shipping, high_risk, bump);
-      functions.logger.info(" ===> [DRAFT ORDER] - Create");
-    } 
-
+      functions.logger.info(" ❷ [DRAFT ORDER] - Created 👍🏻");
+    }
     return STRIPE_PI;
 }
 

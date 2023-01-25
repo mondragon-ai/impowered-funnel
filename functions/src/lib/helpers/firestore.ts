@@ -211,9 +211,6 @@ export const getSessionAccount = async (
         status = 400;
     }
 
-    functions.logger.debug(" => [GET SESSION DOCUMENT]");
-    functions.logger.debug(text);
-
     // return either result 
     return {
         text: text,
@@ -430,6 +427,7 @@ export const simlpeSearch = async (
     .get()
 
     if (result.empty) {
+        functions.logger.error(" 🚨 [SEARCHING] -  ❸ Document NOT found");
         text = " - Document NOT updated 👎🏻";
         status = 400;
         result = null;

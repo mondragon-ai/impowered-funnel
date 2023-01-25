@@ -267,9 +267,6 @@ export const updateFunnelCheckout = async (
     funnel_uuid: string,
     price: number
 ) => {
-
-    functions.logger.info("-------- [ANALYTICS] - Update Checkout");
-
     if (funnel_uuid && funnel_uuid !== "") {
     
         let funnel: Funnel = {} as Funnel
@@ -293,9 +290,7 @@ export const updateFunnelCheckout = async (
             const analytics: FunnelAnalytics = result.data as FunnelAnalytics;
     
             if (analytics !== null) {
-                functions.logger.info("-------- [ANALYTICS] - Update ");
-                functions.logger.info(price);
-                functions.logger.info(analytics.total_sales);
+                functions.logger.info(" 📊 [ANALYTICS] - Update ");
                 const update = {
                     ...analytics,
                     steps: analytics.steps ? analytics?.steps.map(step => {
@@ -315,8 +310,7 @@ export const updateFunnelCheckout = async (
 
                 await updateFunnelAnalytics(merchant_uuid, funnel_uuid, String(TODAY), update);
             } else {
-
-                functions.logger.info("--------> [ANALYTICS] - Create ");
+                functions.logger.info(" 📊 [ANALYTICS] - Create ");
                 let analytics = {
                     total_orders: 0,
                     total_sales: price,
@@ -350,7 +344,7 @@ export const updateFunnelCheckout = async (
             }
 
         } catch (e) {
-            functions.logger.info("154: [ERROR] - Updating analytics ");
+            functions.logger.info("347: 🚨 [ERROR] - Updating analytics ");
         }
     } 
 }
