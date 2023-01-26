@@ -103,9 +103,9 @@ export const orderRoutes = (app: express.Router) => {
 
 
     app.post("/draft_orders/complete_server", async (req: express.Request, res: express.Response) => {
-        functions.logger.debug(" ====> [COMPLETE DRAFT ORDER] - Started Route ✅");
+        functions.logger.debug(" ✅ [COMPLETE_DRAFT_ORDER] - Started Route ");
         let status = 200,
-            text = "[SUCCESS]: Order sucessfully completed ✅",
+            text = " 🎉 [SUCCESS]: Order sucessfully completed ✅",
             ok = true;
 
         const {
@@ -114,7 +114,7 @@ export const orderRoutes = (app: express.Router) => {
             cus_uuid
         } = req.body;
 
-        functions.logger.debug(" ====> [INPUT] 👇🏻");
+        functions.logger.debug(" ❶[INPUT] 👇🏻");
         functions.logger.debug(merchant_uuid);
         functions.logger.debug(dra_uuid);
         functions.logger.debug(cus_uuid);
@@ -124,7 +124,7 @@ export const orderRoutes = (app: express.Router) => {
           await completeDraftOrder(merchant_uuid, dra_uuid, cus_uuid);
           
         } catch (e) {
-            text = "[ERROR]: Likely a problem completing a order";
+            text = " 🚨 [ERROR]: Likely a problem completing a order";
             status = 500;
             ok = false;
             functions.logger.error(text);

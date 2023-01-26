@@ -1,4 +1,4 @@
-import { Customer, LastOrder, } from "../../types/customers";
+import { Customer, } from "../../types/customers";
 import { createDocument, simlpeSearch, updateDocument } from "../firestore";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
@@ -52,16 +52,6 @@ export const createCustomerPayment = async (
     update_data = {
         ...data,
         ...update_data,
-        addresses: [],
-        shopify_uuid: "",
-        tags: [],
-        status: false,
-        accepts_SMS: false,
-        accepts_email: true,
-        ip_address: "",
-        notes: "",
-        orders: [],
-        last_order: {} as LastOrder,
         draft_orders: update_data.draft_orders ?  update_data.draft_orders : "",
         created_at: admin.firestore.Timestamp.now(),
         updated_at: admin.firestore.Timestamp.now(),

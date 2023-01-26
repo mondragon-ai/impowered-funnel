@@ -196,6 +196,7 @@ export const analyticRoutes = (app: express.Router) => {
                   daily_cart_rate: 0,
                   daily_checkout_rate: 0,
                   top_sellers: [],
+                  orders: [],
                   id: "dai_" + crypto.randomBytes(10).toString("hex"),
                 }
             
@@ -220,10 +221,10 @@ export const analyticRoutes = (app: express.Router) => {
             text: text,
             data: result
         })
-    })
+    });
 
     app.post("/analytics/page_views", validateKey ,async (req: express.Request, res: express.Response) => {
-        console.log("[ANALYTICS] - Page Views Started ✅");
+        console.log(" ✅ [ANALYTICS] - Page Views Started");
         let status = 500, text = " 🚨 [ERROR]: Likley internal problem 😿 ";
 
         let MERCHANT_UUID = req.body.merchant_uuid;

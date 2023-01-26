@@ -18,14 +18,14 @@ export const completeDraftOrder = async (
 
     try {
         const result = await getDocument(merchant_uuid, "draft_orders", dra_uuid);
-        functions.logger.info(" > [DRAFT ORDER] - Fetched Doc");
+        functions.logger.info(" ❷ [DRAFT ORDER] - Fetched Doc");
 
         if (result.status < 300) {
             draftOrder = result.data as DraftOrder;
 
             // Delete Doc
             await deleteDocument(merchant_uuid, "draft_orders", dra_uuid);
-            functions.logger.info(" > [DRAFT ORDER] - Deleted Doc");
+            functions.logger.info(" ❷ [DRAFT ORDER] - Deleted Doc");
         }
     } catch (e) {
         functions.logger.error(text + " - Fetching & Deleting Doc");
@@ -37,7 +37,7 @@ export const completeDraftOrder = async (
             created_at: admin.firestore.Timestamp.now(),
             updated_at: admin.firestore.Timestamp.now()
         })
-        functions.logger.info(" > [ORDER] - Created Doc");
+        functions.logger.info(" ❷ [ORDER] - Created Doc");
     } catch (e) {
         functions.logger.info(text + " - creating order doc");
     }
@@ -45,11 +45,11 @@ export const completeDraftOrder = async (
     try {
         if (draftOrder?.store_type == "SHOPIFY") {
             await createShopifyOrder(draftOrder, cus_uuid);
-            functions.logger.info(" > [SHOPIFY] - Created Order");
+            functions.logger.info(" ❷ [SHOPIFY] - Created Order");
         }
 
     } catch (e) {
-        functions.logger.error(text + " - creating shoify order");
+        functions.logger.error(text + " ❷ creating shoify order");
     }
 
 

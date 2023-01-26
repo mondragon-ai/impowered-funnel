@@ -110,7 +110,7 @@ export const paymentsRoutes = (app: express.Router) => {
 
     app.post("/payments/quick-buy/square", async (req: express.Request, res: express.Response) => {
         let s = 500,
-        t = "ERROR: LIkely internal problem 👽";
+        t = "[ERROR]: LIkely internal problem 👽";
 
         const { sourceId, locationId} = req?.body
         functions.logger.info('Storing card');
@@ -324,7 +324,7 @@ export const paymentsRoutes = (app: express.Router) => {
     })
 
     app.post("/payments/quick-sub", validateKey, async (req: express.Request, res: express.Response) => {
-        functions.logger.info(" ====> [PAYMENTS] - Started Quick Sub ✅")
+        functions.logger.info(" ✅ [PAYMENTS] - Started Quick Subscription Route ")
         let status = 500,
             text = " 🚨 [ERROR]: Likey internal problems 🤷🏻‍♂️. ",
             ok = false;
@@ -344,48 +344,41 @@ export const paymentsRoutes = (app: express.Router) => {
 
         if (res_customer.status < 300 && res_customer.data) {
             customer = res_customer.data as Customer;
-            status = 200;
-            text = "[SUCCESS]: Customer Fetched";
-            ok = true;
         }
 
         let draft_order: DraftOrder = {} as DraftOrder;
 
-        // Logging
-        functions.logger.info("[CUSTOMER] - Fetched:");
 
         try {
             console.log(customer.draft_orders)
             const res_draft_order = await getDocument(merchant_uuid, "draft_orders", customer.draft_orders);
 
             if (res_draft_order.status < 300 && res_draft_order.data) {
+                // Logging
+                functions.logger.info(" ❶ [CUSTOMER] - Fetched Customer");
                 draft_order = res_draft_order.data as DraftOrder;
-                status = 200;
-                text = text + " - Draft Order Fetched";
-                ok = true;
             }
         } catch (e) {
             text = text + " - fetching draft order";
+            functions.logger.error("365: " + text);
         };
 
-        // Logging
-        functions.logger.info("[PRICE]");
-
         const price = (product as LineItem) ? (product as LineItem).price : 0;
-        functions.logger.info(price);
+        functions.logger.info(" ❶ [PRICE] - Current price == " + price + " 💰");
+        console.log(draft_order);
 
         if (draft_order) {
             try {
                 const result = await handleSubscription(customer, merchant_uuid, draft_order, price);
                 console.log(result);
                 status = 200;
-                text = "[SUCCESS]: Cutomer charged & subbed 👽 ";
+                text = " 🎉 [SUCCESS]: Cutomer charged & subbed 👽 ";
                 ok = true;
                 console.log(text);
                 
             } catch (e) {
                 text = text + " - Stripe Sub doesnt exist"
-                functions.logger.info(text);
+                functions.logger.error("385: " + text);
             }
 
             // Update  analytics

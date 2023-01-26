@@ -15,7 +15,7 @@ export const orderCreated = functions.firestore
 .document('merchants/{merhcantId}/orders/{orderId}')
 .onCreate(async (snap) => {
 
-    functions.logger.info(" =====> [ORDER] - on Create (trigger)");
+    functions.logger.info(" ✅ [ORDER] - on Create (trigger_fn)");
     // Get & cast document
     const order = snap.data() as Order;
 
@@ -60,7 +60,7 @@ export const orderCreated = functions.firestore
 
         if (customer_resposen.status < 300 && customer_resposen?.data) {
             customer = customer_resposen?.data as Customer;
-            functions.logger.info(" =====> [CUSTOMER] - Fetched");
+            functions.logger.info(" ❶ [CUSTOMER] - Fetched 👍🏻");
         }
 
     } catch (e) {
@@ -96,7 +96,7 @@ export const orderCreated = functions.firestore
                     payment_status: true,
                 }
             } as Customer);
-            functions.logger.info(" =====> [CUSTOMER] - UPDATED");
+            functions.logger.info("❶ [CUSTOMER] - Updated 👍🏻");
         }
 
     } catch (e) {
@@ -106,7 +106,7 @@ export const orderCreated = functions.firestore
     try {
 
         if (customer) {
-            functions.logger.info(" =====> [FULFILLMENT] - started");
+            functions.logger.info(" ❶ [FULFILLMENT] - Creating fullfillment document ");
 
             const first = customer?.first_name ? customer?.first_name : ""
             const last = customer?.last_name ? customer?.last_name : ""
@@ -125,7 +125,7 @@ export const orderCreated = functions.firestore
                 last_order: {
                     line_items: line_items && line_items.length > 0 ? line_items : [],
                     id: id,
-                    total_price: current_total_price,
+                    total_price: current_total_price && Number(current_total_price) >= 0 ? current_total_price : 0,
                     order_number: typeof(order_number) == "string" && order_number !== "" ? order_number : "",
                     payment_status: true,
                 },
@@ -164,7 +164,7 @@ export const orderCreated = functions.firestore
             const first = customer?.first_name ? customer?.first_name : ""
             const last = customer?.last_name ? customer?.last_name : ""
 
-            functions.logger.info(" =====> [GIFT CARD] - start");
+            functions.logger.info("❶ [GIFT CARD] - Creating Gift Card 💳");
             await createDocument(merchant_uuid, "gift_cards", "gif_", {
                 created_at: admin.firestore.Timestamp.now(),
                 updated_at: admin.firestore.Timestamp.now(),
@@ -183,7 +183,7 @@ export const orderCreated = functions.firestore
             });
         }
     } catch (error) {
-        functions.logger.error(" ? [ERROR] - Problem with creating a Gift Card D0cument");
+        functions.logger.error(" 🚨 [ERROR] - Problem with creating a Gift Card D0cument");
         
     }
 
@@ -192,14 +192,14 @@ export const orderCreated = functions.firestore
         if (customer) {    
             const first = customer?.first_name ? customer?.first_name : ""
             const last = customer?.last_name ? customer?.last_name : ""
-            functions.logger.info(" =====> [SUBS] - start");
+            functions.logger.info("❶ [SUBSSCRIPTION] - Creating Subscription Document ⏪️ ");
 
             if (line_items && line_items.length > 0) {
-                functions.logger.info(" =====> [SUBS] - LineItem Exists");
+                functions.logger.info("❶ [SUBSSCRIPTION] - LineItem Exists ⏪️ ");
         
                 line_items?.map(async (item) => {
                     if (item?.variant_id && String(item?.variant_id).includes("sub_")) {
-                        functions.logger.info(" =====> [SUBS] - Create");
+                        functions.logger.info("❶ [SUBSSCRIPTION] - Creating Subscription Document with Item from Order ⏪️ ");
                         await createDocument(merchant_uuid, "subscriptions", "sub_", {
                             created_at: admin.firestore.Timestamp.now(),
                             updated_at: admin.firestore.Timestamp.now(),
@@ -213,18 +213,18 @@ export const orderCreated = functions.firestore
                             schedule: {
                                 interval: 1,
                                 type: "MONTH",
-                                total_value: item?.price
+                                total_value: item?.price ? item?.price : 0
                             },
                             product: {
                                 product_id: item?.product_id,
                                 variant_id: item?.variant_id,
                                 title: item?.title,
-                                options1: item?.options1,
-                                options2:  item?.options2,
-                                options3:  item?.options3,
-                                price:  item?.price,
+                                options1: item?.options1 ? item?.options1 : "",
+                                options2:  item?.options2 ? item?.options2 : "",
+                                options3:  item?.options3 ? item?.options3 : "",
+                                price:  item?.price ? item?.price : 0,
                             },
-                            order_number: order_number,
+                            order_number: order_number ? order_number : "",
                             payment_method: "STRIPE" 
                         });
                     } else {
@@ -233,7 +233,7 @@ export const orderCreated = functions.firestore
             }
         }
     } catch (error) {
-        functions.logger.error(" > [ERROR] - PROBLEM w/ Creating a subscription document");
+        functions.logger.error(" 🚨 [ERROR] - PROBLEM w/ Creating a subscription document");
         
     }
 

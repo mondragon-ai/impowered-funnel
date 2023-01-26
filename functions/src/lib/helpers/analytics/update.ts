@@ -22,13 +22,13 @@ export const updateAnalyticsOnOrderSuccess = async (
 
     const funnel = funnel_data !== null ? funnel_data as FunnelAnalytics : null;
 
-    functions.logger.info("-------- [IDS] 👇🏻");
+    functions.logger.info(" ❷ [IDS] 👇🏻");
     functions.logger.info(MERCHANT_UUID);
     functions.logger.info(TODAY);
     functions.logger.info(funnel_data);
 
-    if (store_data !== null) {
-        functions.logger.info(" ===> [STORE UPDATE] - Analytics");
+    if (store_data) {
+        functions.logger.info(" ❷ [STORE UPDATE] - Analytics");
 
         const {
             total_daily_orders,
@@ -48,7 +48,7 @@ export const updateAnalyticsOnOrderSuccess = async (
 
             if (top_sellers.length > 0) {
                 top_sellers.forEach((item) => {
-                    functions.logger.info(" ===> [LINE_ITEM]: " + li.title + "_" + item.title);
+                    functions.logger.info(" ❷ [TOP_SELLERS]: [" + li.title + " == " + item.title + "] --> [ORDER_ITEM == TOP_SELLER]");
                     if (li.title == item.title) {
                         list = [
                             ...list,
@@ -83,8 +83,21 @@ export const updateAnalyticsOnOrderSuccess = async (
             }
 
         });
-        functions.logger.info(" ===> [LINE_ITEM]: ");
+        functions.logger.info(" ❷ [LINE_ITEM]: ");
         functions.logger.info(list);
+
+        const hourly_orders = orders && orders.length > 0 ? [
+            ...orders,
+            {
+                date: admin.firestore.Timestamp.now(),
+                value: current_total_price ? Number(current_total_price) : 1,
+            }
+        ] : [
+            {
+            date: admin.firestore.Timestamp.now(),
+            value: current_total_price ? Number(current_total_price) : 1,
+            }
+        ]
 
         await updateDocument(MERCHANT_UUID, "analytics", TODAY, {
             ...store_data,
@@ -94,13 +107,10 @@ export const updateAnalyticsOnOrderSuccess = async (
             total_funnel_sales: funnel_uuid ? (store_data.total_funnel_sales + current_total_price) : (store_data.total_funnel_sales) ? store_data.total_funnel_sales : current_total_price,
             total_daily_sales: (total_daily_sales + current_total_price as number),
             top_sellers: list,
-            orders: [
-                ...orders,
-                {
-                    date: admin.firestore.Timestamp.now(),
-                    value: current_total_price,
-                }
-            ],
+            orders: hourly_orders as {
+                date: FirebaseFirestore.Timestamp,
+                value: number,
+            }[],
             total_daily_checkouts: total_daily_checkouts + 1,
             updated_at: admin.firestore.Timestamp.now()
         });
@@ -170,7 +180,7 @@ export const updateAnalyticsOnOrderSuccess = async (
     }
 
     if (funnel_data !== null && funnel_uuid !== "") {
-        functions.logger.info(" ====> [FUNNEL UPDATE] - Started");
+        functions.logger.info(" ❷ [FUNNEL UPDATE] - Started");
 
         const {
             total_sales,
@@ -178,11 +188,11 @@ export const updateAnalyticsOnOrderSuccess = async (
         } = funnel as FunnelAnalytics;
 
         let total = total_sales ? (total_sales + current_total_price) : current_total_price;
-        functions.logger.info(" ====> [FUNNEL TOTAL] - " + total_sales);
-        functions.logger.info(" ====> [PRICE] - " + current_total_price);
+        functions.logger.info(" ❷ [FUNNEL TOTAL] - " + total_sales);
+        functions.logger.info(" ❷ [PRICE] - " + current_total_price);
 
         let total_initial_views = 0;
-        functions.logger.info(" ====> [INITAL VIEWS] - " + total_initial_views);
+        functions.logger.info(" ❷ [INITAL VIEWS] - " + total_initial_views);
 
 
         let analytics = {
@@ -212,11 +222,11 @@ export const updateAnalyticsOnOrderSuccess = async (
             updated_at: admin.firestore.Timestamp.now(),
             created_at: admin.firestore.Timestamp.now(),
         } as FunnelAnalytics;
-        console.log(" ====> [ANALYTICS] - UPDATED ✅");
+        console.log(" ❷ [ANALYTICS] - UPDATED ✅");
         console.log(analytics);
 
 
-        console.log(" ====> [ANALYTICS] - LIST");
+        console.log(" ❷ [ANALYTICS] - LIST");
         console.log(MERCHANT_UUID);
         console.log(funnel_uuid);
         console.log(TODAY);
@@ -226,7 +236,7 @@ export const updateAnalyticsOnOrderSuccess = async (
     }  else {
 
         if (funnel_uuid !== "") {
-            functions.logger.info(" ====> [FUNNEL CREATE] - Started");
+            functions.logger.info(" ❷ [FUNNEL CREATE] - Started");
 
             let analytics = {
                 total_orders: 1,

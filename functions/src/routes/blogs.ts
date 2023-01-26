@@ -2,7 +2,7 @@ import * as express from "express";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 // import * as sharp from "sharp";
-import { createDocument, getCollections, getDocument, simlpeSearch} from "../lib/helpers/firestore"; //, getCollections, getDocument, simlpeSearch
+import { createDocument, getCollections, getDocument, simlpeSearch, updateDocument} from "../lib/helpers/firestore"; //, getCollections, getDocument, simlpeSearch
 import { validateKey } from "./auth";
 import { divinciRequests } from "../lib/helpers/requests";
 // import { fetchOrders } from "../lib/helpers/shopify";
@@ -38,6 +38,12 @@ type BlogFetch = {
     merchant_uuid: string,
     blo_uuid: string
 }
+type BlogUpdate = {
+    merchant_uuid: string,
+    blo_uuid: string
+    blog: Blog,
+}
+
 
 type Blog = {
     id: string,
@@ -152,6 +158,76 @@ export const blogRoutes = (app: express.Router) => {
             
         } catch (e) {
             functions.logger.error(text + (blo_uuid !== "" ? "." : "s."));
+        }
+
+        res.status(status).json({
+            ok: ok,
+            text: text, 
+            result: {
+                size: size,
+                blogs: blogs ? blogs : []
+            }
+        })
+
+    });
+
+
+    app.post("/blogs/update", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ✅ [BLOG ROUTE] - Ready to Update blog");
+        let status = 400,
+            text = " 🚨 [ERROR]: Could not update document",
+            ok = false;
+
+        let {
+            blo_uuid,
+            blog,
+            merchant_uuid,
+        } = req.body as BlogUpdate; 
+
+        functions.logger.debug(blo_uuid);
+        functions.logger.debug(merchant_uuid);
+
+        let blogs: Blog[] = [];
+        let size = 0;
+
+        blog = {
+            ...blog,
+            updated_at: admin.firestore.Timestamp.now()
+        }
+
+        try {
+
+            if (merchant_uuid !== "") {
+
+                if (blo_uuid === "") {
+                    functions.logger.debug(" ❶ [BLOG_UUID] - Creating Blog -> UUID DOES NOT EXIST");
+
+                    const blog_response = await createDocument(merchant_uuid, "blogs", "blo_", blog);
+                    
+                    if (blog_response.status < 300 && blog_response.data) {
+                        blogs = [blog as Blog];
+                        status = 200;
+                        text = " 🎉 [SUCCESS]: Document updated with uuid -> " + blo_uuid;
+                        ok = true;
+                        size = 1;
+                    }
+                } else {
+                    functions.logger.debug(" ❶ ![BLOG_UUID] - Updating Blogs");
+
+                    const blog_response = await updateDocument(merchant_uuid, "blogs", blo_uuid, blog);
+                    
+                    if (blog_response.status < 300) {
+                        blogs = blogs;
+                        status = 201;
+                        text = " 🎉 [SUCCESS]: Documents fetched. ";
+                        ok = true;
+                        size = 1;
+                    }
+                }
+            }   
+            
+        } catch (e) {
+            functions.logger.error(text + (blo_uuid));
         }
 
         res.status(status).json({

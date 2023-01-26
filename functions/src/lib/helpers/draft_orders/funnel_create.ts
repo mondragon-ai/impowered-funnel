@@ -130,8 +130,8 @@ export const handleSuccessPayment = async (
 
                         if (repsonse.status < 300 && repsonse.data) {
                             functions.logger.info(" ❸ [DRAFT_ORDER] - Draft Order Fetched 📦");
-                            const customer = repsonse.data as Customer;
-                            const LI = customer.line_items ? customer.line_items : [];
+                            const draft_order_response = repsonse.data as DraftOrder;
+                            const LI = draft_order_response.line_items ? draft_order_response.line_items : [];
 
                             draft_data = {
                                 ...draft_data,
@@ -142,9 +142,11 @@ export const handleSuccessPayment = async (
                                 updated_at: admin.firestore.Timestamp.now()
                             }
                             functions.logger.info(" ❸ [DRAFT_ORDER] - Update Draft Order 📦");
+                            functions.logger.info(draft_data);
+                            functions.logger.info( customer.draft_orders !== "" ? customer.draft_orders : draft_orders_uuid );
 
                             // Create Draft Order
-                            const draftOrder = await updateDocument(merchant_uuid, "draft_orders", ( customer.draft_orders ? customer.draft_orders : draft_orders_uuid ) , draft_data);
+                            const draftOrder = await updateDocument(merchant_uuid, "draft_orders", ( customer.draft_orders !== "" ? customer.draft_orders : draft_orders_uuid ) , draft_data);
                 
                             if (draftOrder.status < 300) { 
                                 functions.logger.info(" ❸ [DRAFT_ORDER] - Draft Order Updated 📦");
@@ -173,13 +175,14 @@ export const handleSuccessPayment = async (
                     ...customer,
                     funnel_uuid: "",
                     updated_at: admin.firestore.Timestamp.now(),
-                    draft_orders: draft_orders_uuid,
+                    draft_orders: draft_orders_uuid ? draft_orders_uuid : 0,
                     shopify_uuid: shopif_uuid,
                 };
 
                 if (high_risk) {
                     update_data = {
                         ...customer,
+                        ...update_data,
                         square: {
                             ...customer?.square,
                             UUID: "",
@@ -189,6 +192,7 @@ export const handleSuccessPayment = async (
                 } else {
                     update_data = {
                         ...customer,
+                        ...update_data,
                         funnel_uuid: "",
                         stripe: {
                             ...customer?.stripe,
