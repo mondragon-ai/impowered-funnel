@@ -5,6 +5,7 @@ import * as admin from "firebase-admin";
 import { createDocument, getCollections, getDocument, simlpeSearch, updateDocument} from "../lib/helpers/firestore"; //, getCollections, getDocument, simlpeSearch
 import { validateKey } from "./auth";
 import { divinciRequests } from "../lib/helpers/requests";
+import { Blog } from "../lib/types/blogs";
 // import { fetchOrders } from "../lib/helpers/shopify";
 // import { storage } from "../firebase";
 // import fetch from "node-fetch";
@@ -20,6 +21,14 @@ import { divinciRequests } from "../lib/helpers/requests";
 type BlogCreate = {	
     blog: Blog,
     merchant_uuid: string
+}
+
+type BlogVote = {
+    merchant_uuid: string,
+    blo_uuid: string,
+    sec_uuid: string,
+    key_name: string,
+    blog?: Blog,
 }
 
 type BlogGenerate = {
@@ -45,24 +54,6 @@ type BlogUpdate = {
 }
 
 
-type Blog = {
-    id: string,
-    title: string,
-    sub_title: string,
-    collection: string,
-    original_text: string,
-    new_text: string,
-    sections: [
-        {
-            type: "TEXT" | "VIDEO" | "IMAGE",
-            text: string, 
-            video: string,
-            image: string,
-        }
-    ],
-    updated_at: FirebaseFirestore.Timestamp,
-    created_at: FirebaseFirestore.Timestamp,
-}
 
 export const blogRoutes = (app: express.Router) => {
     app.post("/blogs/create", validateKey, async (req: express.Request, res: express.Response) => {
@@ -190,10 +181,28 @@ export const blogRoutes = (app: express.Router) => {
         let blogs: Blog[] = [];
         let size = 0;
 
+        let default_media_url = ""; // set && get blogs.default_media_url 
+
+        if (blog.sections && blog.sections.length > 0) {
+            blog.sections.forEach(section => {
+        
+                if (section.type === "IMAGE" && default_media_url === "") {
+                    default_media_url = section.image;
+                }
+        
+                if (section.type === "VIDEO" && default_media_url === "") {
+                    default_media_url = section.video;
+                }
+            });    
+        }
+
         blog = {
             ...blog,
-            updated_at: admin.firestore.Timestamp.now()
+            updated_at: admin.firestore.Timestamp.now(),
+            default_media_url: default_media_url
         }
+
+
 
         try {
 
@@ -348,10 +357,9 @@ export const blogRoutes = (app: express.Router) => {
             if (merchant_uuid !== "" && original_text !== "") {
                 const gpt_response = await divinciRequests("/completions", "POST", {
                     model: "text-davinci-003",
-                    prompt: "Generate a click-baiting news article headline from the following article below: \n\n" + new_text ? new_text : original_text,
+                    prompt: "Generate the best headline from the following article below for a news article website: \n\n" + new_text ? new_text : original_text,
                     temperature: 0.9,
-                    max_tokens: 15,
-                    frequency_penalty: 0,
+                    max_tokens: 35,
                 }); 
 
                 if (gpt_response.status < 300 && gpt_response.data) {
@@ -374,10 +382,9 @@ export const blogRoutes = (app: express.Router) => {
             if (merchant_uuid !== "" && original_text !== "") {
                 const gpt_response = await divinciRequests("/completions", "POST", {
                     model: "text-davinci-003",
-                    prompt: "Generate an eyecatching and interesting summary sub headline from the follow article : \n\n" + new_text ? new_text : original_text,
+                    prompt: "Generate the best subheadline from the following article below for a news article website: \n\n" + new_text ? new_text : original_text,
                     temperature: 0.9,
-                    max_tokens: 20,
-                    frequency_penalty: 0,
+                    max_tokens: 50,
                 }); 
 
                 if (gpt_response.status < 300 && gpt_response.data) {
@@ -402,6 +409,74 @@ export const blogRoutes = (app: express.Router) => {
                 head_line,
                 subheadline
             }
+        })
+
+    });
+
+
+
+
+    app.post("/blogs/vote", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ✅ [BLOG ROUTE] - Ready to vote for a blog poll.");
+        let status = 400,
+            text = " 🚨 [ERROR]: Could not vote correctly. ",
+            ok = false;
+
+        let {
+            blo_uuid,
+            merchant_uuid,
+            key_name,
+            sec_uuid,
+        }: BlogVote = req.body as BlogVote; 
+
+        let blog: Blog = {} as Blog;
+
+        try {
+
+            if (key_name !== "" && blo_uuid !== "" && sec_uuid !== "") {
+                const blog_response = await getDocument(merchant_uuid, "blogs", blo_uuid)
+
+                if (blog_response.status < 300 && blog_response.data) {
+                    blog = blog_response?.data as Blog;
+                }
+            }   
+        } catch (e) {
+            functions.logger.error(text + " -> Problem fetching document. Contact customer support.");
+        }
+
+        if (blog.sections && blog.sections.length > 0) {
+            blog.sections.forEach(sec => {
+                if (sec_uuid === sec.id) {
+                    const currTotal = sec[key_name];
+                    functions.logger.debug(" ❶ [VOTE] - Current Total -> ", currTotal);
+                    sec[key_name] = currTotal ? Number(currTotal) + 1 : 1;
+                    functions.logger.debug(" ❶ [VOTE] - New Total after the Vote -> ", sec[key_name]);
+                }
+            });
+            functions.logger.debug(" ❶ [NEW BLOG] -> ", {blog});
+        }
+
+        try {
+
+            if (key_name !== "" && blo_uuid !== "" && sec_uuid !== "") {
+
+                const update_response = await updateDocument(merchant_uuid, "blogs", blo_uuid, blog);
+    
+                if (update_response.status < 300) {
+                    status = 201;
+                    text = " 🎉 [SUCCESS]: Vote casted graciously. ";
+                    ok = true;
+                }    
+               
+            }   
+        } catch (error) {
+            functions.logger.error(text + " -> Likely problem updating. Contact customer support.");
+        }
+
+        res.status(status).json({
+            ok: ok,
+            text: text, 
+            result: null
         })
 
     });

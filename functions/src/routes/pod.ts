@@ -7,6 +7,7 @@ import { validateKey } from "./auth";
 import { fetchOrders } from "../lib/helpers/shopify";
 // import { storage } from "../firebase";
 import fetch from "node-fetch";
+import { divinciRequests, shineOnAPIRequests } from "../lib/helpers/requests";
 
 type Design = {
     merchant_uuid: string,
@@ -271,6 +272,207 @@ export const podRoutes = (app: express.Router) => {
         })
     });
 
+
+    app.post("/pod/poems", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ====> [POD ROUTE] - Started Poem to Shine On Route ✅");
+        let text = " ✅ [SUCCESS]: Poem successfully generated and shine on image fetched 👽",
+            ok = true,
+            status = 200;
+            
+
+        let {
+            url,
+            relation,
+            name,
+            isMale,
+            type
+        } = req.body as {
+            url: string,
+            relation: string,
+            name: string,
+            type: string,
+            isMale: boolean
+        }
+
+        let poem = "";
+
+        try {
+
+            if (name !== "" && relation !== "" && type !== "") {
+                const gpt_response = await divinciRequests("/completions", "POST", {
+                    model: "text-davinci-003",
+                    prompt: "Generate the best short " + (type ? type : "love") + " poem, less than 26 words, for a " + (relation ? relation : "wife") +  " with the name " + (name),
+                    temperature: 0.9,
+                    max_tokens: 35,
+                }); 
+
+                if (gpt_response.status < 300 && gpt_response.data) {
+                    poem = gpt_response?.data?.choices[0]?.text;
+                    functions.logger.debug(poem);
+                    status = 201;
+                    text = " 🎉 [SUCCESS]: New poem generated. ";
+                    ok = true;
+                }
+               
+            }   
+            
+        } catch (e) {
+            functions.logger.error(text + " Likley a DaVinci Issue. Contact customer support.");
+        }
+
+        const lines = poem ? poem.toLocaleLowerCase().substring(4).split("\n") : [];
+        let text_to_svg = "";
+
+        console.log(lines.length)
+
+        if (lines.length > 1) {
+            lines.forEach((line, index) => {
+                functions.logger.debug(" => LINE: " + line);
+                text_to_svg += `<tspan x="50%" dy="1.8em" class="spanText">${line.toLocaleUpperCase()}</tspan>`;
+                if (index !== lines.length - 1 && line !== '') {
+                    text_to_svg += "\n"
+                }
+            });
+        } else {
+            const poemArr = poem ? poem.substring(2).split(" ") : [];
+
+            let wpl = 7; // Words per line
+            let new_line = ""; 
+
+            poemArr.forEach((word, index) => {
+                if (index < wpl - 1) {
+                    new_line = new_line + " " + word;
+                    functions.logger.debug(" => WORD: " + new_line);
+                } 
+                if (index == wpl - 1) {
+                    new_line = new_line + " " + word;
+                    text_to_svg += `<tspan x="50%" dy="1.8em" class="spanText">${new_line.toLocaleUpperCase()}</tspan>`;
+                    if (index !== poemArr.length - 1 && word !== '') {
+                        text_to_svg += "\n"
+                    }
+                    wpl = wpl + 7;
+                    new_line = ""
+                    functions.logger.debug(" => text_to_svg: " + text_to_svg);
+                }
+            });
+            
+            text_to_svg += `<tspan x="50%" dy="1.8em" class="spanText">${new_line.toLocaleUpperCase()}</tspan>`;
+
+        }
+
+        // MADE Evolve Sans --> FONT 28px 
+
+
+        const svgText = `<svg width="1500" height="1500" xmlns="http://www.w3.org/2000/svg" version="1.1">
+            <style>
+            @font-face {
+                font-family: 'MADE Evolve Sans';
+                src: url('../assets/MADE_Evolve_Sans.otf') format('truetype');
+            }
+            .title { 
+                fill: black; 
+                font-size: 45px;
+                text-align: center;
+                word-wrap: break-word;
+                font-family: 'MADE Evolve Sans';
+            }
+            .spanText {
+                font-size: 45px;
+                fill: black; 
+                font-family: 'MADE Evolve Sans';
+                word-wrap: break-word;
+            }
+            </style>
+            <g>
+                <text x="50%" y="60%" width="500px" text-anchor="middle" class="title">
+                    ${text_to_svg}
+                </text>
+            </g>
+        </svg>`
+
+        const svgBuffer = Buffer.from(svgText);
+
+        // const new_text = Buffer.from(poem, "utf8");
+
+        let img_url = "";
+
+        try {
+            // download image from stoage
+            if (url !== "" && poem !== "") {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(" 🚨 [ERROR] - ");
+                }
+    
+                const array_buffer = await response.arrayBuffer();
+
+                const buffer = Buffer.from(array_buffer, "utf8");
+
+                functions.logger.debug(" 🖼️ [IMAGE] - Fetched ");
+    
+                const image = sharp(buffer);
+                functions.logger.debug(" 🖼️ [IMAGE] - Image -> Sharp ");
+                
+                
+                const newImage = await image
+                    .resize(1500, 1500)
+                    .composite([{input: svgBuffer, gravity: "south"}])
+                    .toFormat("png")
+                    .toBuffer({ resolveWithObject: true })
+                    .then(({ data, info }) => {
+                        console.log(data);
+                        console.log(info);
+                        return data
+                    })
+                    .catch(err => console.error(err));
+                
+                functions.logger.debug(" 🖼️ [IMAGE] - New Image w/ poem");
+
+                img_url = (await uploadImageToStorage(newImage as Buffer)) as string;
+
+                functions.logger.log(" ✅ [FINISHED]: " + img_url);
+
+                
+
+            }
+
+        } catch (e) {
+            // status = 400;
+            // ok = false;
+            text = " 🚨 [ERROR]: Design could not be fetched";
+            functions.logger.error(text)
+        }
+
+        console.log(isMale)
+
+        try {
+
+            // download image from stoage
+            const response = await shineOnAPIRequests("/renders/13125/make", "POST", {
+                "src": img_url
+            })
+
+            if (response.status < 300 && response.data) {
+                functions.logger.debug(response.data)
+                img_url = response.data.render.make.src ? response.data.render.make.src : img_url
+            }
+
+        } catch (e) {
+            status = 400;
+            ok = false;
+            text = " 🚨 [ERROR]: Shine On could not be created";
+            functions.logger.error(text)
+        }
+
+
+
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: img_url
+        })
+    });
+
     app.post("/pod/image/create", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ====> [POD ROUTE] - Started Image Create ✅");
         let text = " ✅ [SUCCESS]: Design successfully fetched 👽",
@@ -365,6 +567,8 @@ export const podRoutes = (app: express.Router) => {
 
         // const new_text = Buffer.from(poem, "utf8");
 
+        let img_url = "";
+
         try {
             // download image from stoage
             if (url !== "" && poem !== "") {
@@ -397,15 +601,11 @@ export const podRoutes = (app: express.Router) => {
                 
                 functions.logger.debug(" 🖼️ [IMAGE] - New Image w/ poem");
 
-                const resp = await uploadImageToStorage(newImage as Buffer);
+                img_url = (await uploadImageToStorage(newImage as Buffer)) as string;
 
-                functions.logger.log(" ✅ [FINISHED]: " + resp);
+                functions.logger.log(" ✅ [FINISHED]: " + img_url);
 
-                res.status(status).json({
-                    ok: ok,
-                    text: text,
-                    result: resp
-                })
+                
 
             }
 
@@ -416,24 +616,32 @@ export const podRoutes = (app: express.Router) => {
             functions.logger.error(text)
         }
 
-        // try {
+        try {
 
-        //     // download image from stoage
+            // download image from stoage
+            const response = await shineOnAPIRequests("/renders/13125/make", "POST", {
+                "src": img_url
+            })
 
-        // } catch (e) {
-        //     functions.logger.error(text)
-        //     status = 400;
-        //     ok = false;
-        //     text = " 🚨 [ERROR]: Design could not be fetched";
-        // }
+            if (response.status < 300 && response.data) {
+                functions.logger.debug(response.data)
+                img_url = response.data.render.make.src ? response.data.render.make.src : img_url
+            }
+
+        } catch (e) {
+            status = 400;
+            ok = false;
+            text = " 🚨 [ERROR]: Shine On could not be created";
+            functions.logger.error(text)
+        }
 
 
 
-        // res.status(status).json({
-        //     ok: ok,
-        //     text: text,
-        //     result: IMG_TO_SHINEON
-        // })
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: img_url
+        })
     });
 }
 

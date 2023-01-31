@@ -169,6 +169,10 @@ export const handleSuccessPayment = async (
             }
 
             try {
+                if (funnel_uuid && funnel_uuid !== "" && draft_orders_uuid !== "") {
+                    functions.logger.info(" ❸  [DRAFT_ORDER] - Set Timer");
+                    sendOrder(merchant_uuid, draft_orders_uuid, id)
+                };
                 functions.logger.info(" ❸  [CUSTOMER] - Update Customer 📦");
                 // Data to push to the primary DB
                 let update_data = {
@@ -210,9 +214,6 @@ export const handleSuccessPayment = async (
                     if (result.status < 300) {
                         status = 200;
                         text = " 🎉 [SUCCESS]: " + result.text
-                        console.log("  ❸ [FUNNEL UUID] - Start Timer Order ⏰ ");
-                        functions.logger.info(result);
-                        if (funnel_uuid && funnel_uuid !== "") sendOrder(merchant_uuid, draft_orders_uuid, id);
                     } 
                 }
             

@@ -194,21 +194,22 @@ export const paymentsRoutes = (app: express.Router) => {
 
         let SQURE_PM = "";
         let SQURE_PI = "";
-        functions.logger.info('Storing card');
-        functions.logger.info(" TOKEN => " + sourceId);
-        functions.logger.info(" CUS_UUID => " + cus_uuid);
+
+        functions.logger.info(" ❶ [TOKEN] => " + sourceId);
+        functions.logger.info(" ❶ [CUS_UUID] => " + cus_uuid);
 
         // TODO: Fetch customer data for Square 
         try {
 
             const response = await getDocument(merchant_uuid, "customers", cus_uuid)
 
+            functions.logger.info(" ❶ [CUSTOMER] => " + response);
             if (response.status < 300 && response.data) {
                 customer = response.data as Customer
             }
             
         } catch (e) {
-            functions.logger.debug('Storing card');
+            functions.logger.error(' ❶ Fetching Csutomer');
         }
 
 
@@ -235,7 +236,7 @@ export const paymentsRoutes = (app: express.Router) => {
 
             const cardReq = {
                 idempotency_key: "" + idempotencyKey,
-                source_id: "" + sourceId,
+                source_id: "" + sourceId ? sourceId : "",
                 card: {
                     billing_address: {
                         address_line_1: billing.line1 ?  billing.line1 : "",
@@ -246,10 +247,12 @@ export const paymentsRoutes = (app: express.Router) => {
                         country: billing.country ?  billing.country : "",
                     },
                     cardholder_name: (customer.first_name ? customer.first_name : "") + " " + (customer.last_name ? customer.last_name : ""),
-                    customer_id: customer.square?.UUID,
+                    customer_id: customer.square?.UUID ? customer.square?.UUID : "",
                     reference_id: merchant_uuid
                 }
             };
+
+            functions.logger.debug(cardReq)
             
 
             if (customer.square?.UUID !== "") {
@@ -257,7 +260,7 @@ export const paymentsRoutes = (app: express.Router) => {
                 const {text, status, data} = await squareRequest("/cards", "POST", cardReq);
     
                 // Logging
-                functions.logger.info('Store Card succeeded!', { text, status });
+                functions.logger.debug(' 🎉 [SUCCESS] => Stored Card Details ', { text, status, data});
 
                 SQURE_PM = data?.card?.id ? data.card.id : ""
 
@@ -284,11 +287,20 @@ export const paymentsRoutes = (app: express.Router) => {
                     location_id: customer.square?.location,
                     reference_id: merchant_uuid,
                 });
-                functions.logger.info('Payment Success!', payment_response);
+                functions.logger.info(' 🎉 [SUCCESS] => Payment Successfully charged!', payment_response);
                 SQURE_PI = payment_response.data?.payment?.id ? payment_response.data.payment.id : ""
             }
         } catch (e) {
             
+        }
+
+        let customer_orders: string [] = [SQURE_PI];
+
+        if (customer.orders && customer.orders.length > 0) {
+            customer_orders = customer.orders ? [
+                ...customer.orders,
+                SQURE_PI
+            ] : [SQURE_PI]
         }
 
         customer = {
@@ -297,11 +309,10 @@ export const paymentsRoutes = (app: express.Router) => {
                 ...customer.square,
                 PM: SQURE_PM
             },
-            orders: [
-                ...customer.orders,
-                SQURE_PI
-            ]
+            orders: customer_orders
         }
+        functions.logger.debug(customer);
+        functions.logger.debug(SQURE_PM);
 
         try {
             if (SQURE_PM !== "" && customer.id !== "") {

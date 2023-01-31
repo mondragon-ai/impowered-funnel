@@ -73,7 +73,7 @@ export const createCustomerPayment = async (
     try {
         if (high_risk) {
             functions.logger.debug(" ❷ [HIGH_RISK] -  Creating Sqaure && Returning UUID");
-            if (customers.length === 0 && cus_uuid === "") {
+            if (!customers[0].square || cus_uuid === "") {
 
                 const square = await createSquareCustomer({
                     note: "CUSTOM FUNNEL",
@@ -98,7 +98,7 @@ export const createCustomerPayment = async (
 
             }
         } else {
-            functions.logger.debug(" ❷ [HIGH_RISK]- Stripe Data && Returning UUID");
+            functions.logger.debug(" ❷ ![HIGH_RISK]- Stripe Data && Returning UUID");
             // Stripe customer created 
             if (customers.length === 0 && cus_uuid === "") {
                 functions.logger.debug(" ❷ [STRIPE] -  Create Stripe Customer 🕺🏼");

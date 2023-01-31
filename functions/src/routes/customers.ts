@@ -82,6 +82,8 @@ export const customerRoute = (
             funnel_uuid,
             high_risk
         } = req.body;
+
+        // has SHOPIFY for new order? 
         
         // Create customer
         let result: {

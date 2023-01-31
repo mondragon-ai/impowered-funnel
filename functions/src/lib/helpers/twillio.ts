@@ -35,3 +35,49 @@ export const sendThankYouEmail = async (
   }
 };
 
+export const sendWelcomeEmail = async (
+    email: string,
+    type: "POLL" | "DISCOUNT" | "NEWS_LETTER" | "STORE" | "ORDER" | "CREATE" | "",
+    sections: {
+      type: string,
+      text: string,
+      option_one: string,
+      option_two: string,
+      [key:string]: any,
+    }[]
+) => {
+
+  let msg = {
+    to: email,
+    from: 'no-reply@angelmondragon.com',
+    subject: 'Welcome to our porject!',
+    text: "",
+    html: ``
+  };
+
+  if (type === "POLL") {
+
+    const poll = sections.filter(s => {
+      return s.type === "POLL"
+    });
+
+    if (poll.length > 0) {
+
+      msg = {
+        to: email,
+        from: 'no-reply@angelmondragon.com',
+        subject: 'Check out your results - Thanks for voting!',
+        text: "Here are the results for your poll: " + poll[0].type ? poll[0].type : "",
+        html: `<ul><li>${poll[0].option_one ? poll[0].option_one : ""}: ${poll[0][poll[0].option_one] ? poll[0][poll[0].option_one] : ""}</li>${poll[0].option_two ? poll[0].option_two : ""}: ${poll[0][poll[0].option_two] ? poll[0][poll[0].option_two] : ""}<li></li></ul>`
+      };
+
+      try {
+        await sgMail.send(msg);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  }
+
+};
+

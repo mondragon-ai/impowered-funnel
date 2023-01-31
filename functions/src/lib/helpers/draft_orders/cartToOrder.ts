@@ -20,9 +20,9 @@ import { LineItem } from "../../types/draft_rders";
       functions.logger.log('160 - Helper Fn: ', cart);
       return cart
     } else {
-      // TODO: Return format
       for (var i = 0; i < ln; i++) {
         if (typeof(line_items[i].variant_id) == "number") {
+          // TODO: ADD PROPERTIES FOR SHINE_ON
           cart = [
             ...cart,
             {

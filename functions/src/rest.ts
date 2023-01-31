@@ -20,6 +20,8 @@ import { openAPIRoutes } from "./routes/openAPI";
 import { twitterRoutes } from "./apis/twitter";
 import { podRoutes } from "./routes/pod";
 import { blogRoutes } from "./routes/blogs";
+import { marketingRoutes } from "./routes/marketing";
+import { botRoutes } from "./routes/bot";
 
 
 export const rest = (db: FirebaseFirestore.Firestore) => {
@@ -83,6 +85,12 @@ export const rest = (db: FirebaseFirestore.Firestore) => {
 
     // Blog Routes
     blogRoutes(app)
+
+    // Marketing Routes
+    marketingRoutes(app)
+
+    // Bot Routes
+    botRoutes(app)
     
 
     return app

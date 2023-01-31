@@ -256,3 +256,108 @@ export const shipEngineAPIRequests = async (
         data: result
     }
 }
+
+
+
+const shine_on_URL = "https://api.shineon.com/v1";
+const shine_on_HEADERS =  new Headers({
+    "Content-Type": "application/json",
+    'Authorization': "Bearer " + process.env.SHINE_ON_API,
+})
+
+
+export const shineOnAPIRequests = async (
+    resource: string,
+    method: string,
+    data: any
+) => {
+
+    let text = " - Problem fetching -> " + resource, 
+        status = 500;
+
+    let response: any | null;
+
+    if (data != null) {
+       response = await fetch(shine_on_URL + resource, {
+            method: method != "" ? method : "GET",
+            body: JSON.stringify(data),
+            headers: shine_on_HEADERS
+        })
+    } else {
+        response = await fetch(shine_on_URL + resource, {
+            method: "GET",
+            headers: shine_on_HEADERS
+        })
+    }
+
+    let result = null;
+
+    if (response != null) {
+        result = await response.json();
+        text = " - Fetched " + resource, 
+        status = 200;
+    }
+
+    return {
+        text,
+        status,
+        data: result
+    }
+}
+
+
+
+
+const klavyio_URL = "https://a.klaviyo.com/api";
+const klavyio_HEADERS =  new Headers({
+    "Content-Type": "application/json",
+    'Authorization': 'Klaviyo-API-Key ' + process.env.KLAVYIO_API,
+    'revision': '2023-01-24',
+})
+
+
+export const klavyioAPIRequests = async (
+    resource: string,
+    method: string,
+    data: any
+) => {
+
+    let text = " - Problem fetching -> " + resource, 
+        status = 500;
+
+    let response: any | null;
+
+    if (data != null) {
+       response = await fetch(klavyio_URL + resource, {
+            method: method != "" ? method : "GET",
+            body: JSON.stringify(data),
+            headers: klavyio_HEADERS
+        })
+    } else {
+        response = await fetch(klavyio_URL + resource, {
+            method: "GET",
+            headers: klavyio_HEADERS
+        })
+    }
+
+    console.log(response)
+    let result = null;
+
+    if (response != null && response.status !== 204) {
+        result = await response.json();
+        text = " - Klavyio Fetched " + resource, 
+        status = response.status;
+    }
+
+    if (response != null && response.status === 204) {
+        text = " - Klavyio fetched " + resource, 
+        status = response.status;
+    }
+    console.log(result, response.status)
+
+    return {
+        text,
+        status,
+        data: result
+    }
+}
