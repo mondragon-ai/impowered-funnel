@@ -5,7 +5,7 @@ import * as admin from "firebase-admin"
 import * as functions from "firebase-functions"
 import { createDocument, getDocument, updateDocument } from "../firestore";
 import { sendOrder } from "./timeCompletion";
-import { createShopifyCustomer } from "../shopify";
+import { createShopifyCustomer, createShineOnOrder } from "../shopify";
 import { Customer } from "../../types/customers";
 
 export const handleSuccessPayment = async (
@@ -16,9 +16,9 @@ export const handleSuccessPayment = async (
     shipping: Address | null,
     high_risk: boolean,
     bump?: boolean,
-    external?: "SHOPIFY" | "BIG_COMMERCE" | ""
+    external?: "SHOPIFY" | "BIG_COMMERCE" | "SHINEON" | ""
 ) => {
-    let status = 500, text = " 🚨 [ERROR]: Likey internal problems 🤷🏻‍♂️. ";
+    let status = 500, text = " 🚨 [ERROR]: Likey internal problems 🤷🏻‍♂️. - handle success";
 
     // TODO: Refactor to be used as LineItem[] instead of Product
     const {
@@ -30,16 +30,16 @@ export const handleSuccessPayment = async (
     
     let draft_orders_uuid = "";
     let shopif_uuid = "";
+    let order_uuid = "";
 
     // Calculate price
     const price = product.price  && Number(product.price) > 0 ? Number(product.price) : 100;
     
     setTimeout(async () => {
         if (STRIPE_PI !== "" && id !== "") {
-            functions.logger.info(" ❸ [STRIPE] - Payment Intent was Successfull && Customer Exists");
+            functions.logger.info(" ❸ [SHOPIFY] - Payment Intent was Successfull && Customer Exists");
 
             if (external === "SHOPIFY") {
-
                 const shopify = await createShopifyCustomer(shipping as Address, email);
     
                 if (shopify != undefined) {
@@ -50,7 +50,6 @@ export const handleSuccessPayment = async (
                         shopif_uuid = result.customers[0].id;
                     }
                 }
-    
             }
     
             try {
@@ -101,9 +100,28 @@ export const handleSuccessPayment = async (
                                 high_risk: false,
                                 sku: "",
                                 handle: "",
-                                weight: 0
+                                weight: 0,
+                                url: ""
                             }
                         ],
+                    }
+                }
+
+                functions.logger.info(" ❹ [SHINEON] ", external);
+
+                if (external === "SHINEON") {
+                    // TODO: CONVER TO PRODUCT.URL
+
+                    functions.logger.info(" ❹ [SHINEON] - Order Created Ready to start");
+                    const shineon = await createShineOnOrder(draft_data, merchant_uuid, customer, "https://firebasestorage.googleapis.com/v0/b/impowered-funnel.appspot.com/o/%2Fimages%2Ftest%2F1674953183241.png?alt=media&token=bda7d1de-9dd3-4933-b79b-3fbc19a18b28");
+        
+                    if (shineon != undefined) {
+                        const result = JSON.parse(JSON.stringify(shineon));
+        
+                        functions.logger.info(" ❹ [SHINEON] - Order Created", {result});
+                        // if (result.customers[0] && result.customers[0].id != "") {
+                        //     functions.logger.info(" ❹ [SHINEON] - Order Created");
+                        // }
                     }
                 }
     
@@ -118,7 +136,6 @@ export const handleSuccessPayment = async (
 
                         // Create Draft Order
                         const draftOrder = await createDocument(merchant_uuid, "draft_orders", "dra_", draft_data);
-            
                         if (draftOrder.status < 300) {
                             functions.logger.info(" ❹ [DRAFT_ORDER] - Draft Order Created 📦");
                             draft_orders_uuid = draftOrder?.data?.id
@@ -156,16 +173,17 @@ export const handleSuccessPayment = async (
                     }
 
                 } else {
-
+                    functions.logger.info(" ❸ [ORDER] -  Order Created Ready📦");
                     // Create Order
-                    await createDocument(merchant_uuid, "orders", "ord_", draft_data);
-                    functions.logger.info(" ❸ [ORDER] -  Order Created 📦");
-
+                    const order_res = await createDocument(merchant_uuid, "orders", "ord_", draft_data);
+                    if (order_res.status < 300 && order_res.data) {
+                        functions.logger.info(" ❸ [ORDER] -  Order Created 📦");
+                        order_uuid = order_res.data.id
+                    }
                 }
                     
-    
             } catch (e) {
-                functions.logger.error(text + " - Creating Cart document in primary DB")
+                functions.logger.error(text + " - Creating Cart document in primary DB");
             }
 
             try {
@@ -189,7 +207,6 @@ export const handleSuccessPayment = async (
                         ...update_data,
                         square: {
                             ...customer?.square,
-                            UUID: "",
                             PM: STRIPE_PM,
                         },
                     };
@@ -205,9 +222,8 @@ export const handleSuccessPayment = async (
                         },
                     };
                 }
-                functions.logger.info(update_data);
 
-                if (draft_orders_uuid !== "") {
+                if (draft_orders_uuid !== "" || order_uuid !== "") {
                     // update customer document from main DB
                     const result = await updateDocument(merchant_uuid, "customers", id, update_data);
         
@@ -229,6 +245,6 @@ export const handleSuccessPayment = async (
     return {
         status: status,
         text: text,
-        data: draft_orders_uuid
+        data: draft_orders_uuid !== "" ? draft_orders_uuid : order_uuid !== "" ? order_uuid : "[ERROR]"
     }
 }

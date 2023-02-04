@@ -288,7 +288,10 @@ export const paymentsRoutes = (app: express.Router) => {
                     reference_id: merchant_uuid,
                 });
                 functions.logger.info(' 🎉 [SUCCESS] => Payment Successfully charged!', payment_response);
-                SQURE_PI = payment_response.data?.payment?.id ? payment_response.data.payment.id : ""
+                SQURE_PI = payment_response.data?.payment?.id ? payment_response.data.payment.id : "";
+                t = " 👍🏻 [SUCCESS]: " + " Card stored && updated graciously!";
+                s = 200
+                ok = true
             }
         } catch (e) {
             

@@ -292,6 +292,8 @@ export const shineOnAPIRequests = async (
 
     let result = null;
 
+    functions.logger.debug(" [SHINE_ON] 💍 Fetch response --> ", {response})
+
     if (response != null) {
         result = await response.json();
         text = " - Fetched " + resource, 

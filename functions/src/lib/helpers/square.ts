@@ -25,6 +25,7 @@ export const handleSquareCharge = async (
     shipping: Address | null,
     high_risk: boolean,
     bump: boolean,
+    external?: "" | "SHOPIFY" | "BIG_COMMERCE" | "SHINEON" | undefined
 ) => {
   
     const {
@@ -44,7 +45,7 @@ export const handleSquareCharge = async (
   
     if (id == "" || email == "") {
       return ""
-    }
+    };
   
     let LOCATION_ID = "";
     let SQR_PI = "";
@@ -114,16 +115,16 @@ export const handleSquareCharge = async (
         product.title !== "" &&
         (Number(product.variant_id) > 0 || product.variant_id  !== "")
     ) {
-  
-      if (addresses && addresses.length > 0) {
-        addresses.map(addy => {
-          if (addy.type === "SHIPPING" || addy.type === "BOTH") {
-            address = address
-          }
-        })
-      }
-      functions.logger.info(" ❸ [PAYMENT] - Handling Successful Payment to Create an Order 💰 ");
-      handleSuccessPayment(customer, product, SQR_PI, SQAURE_PM, shipping, high_risk, bump);
+        if (addresses && addresses.length > 0) {
+          addresses.map(addy => {
+            if (addy.type === "SHIPPING" || addy.type === "BOTH") {
+              address = addy
+            }
+          })
+        }
+        functions.logger.info(" ❷ [EXTERNAL] ", external);
+        handleSuccessPayment(customer, product, SQR_PI, SQAURE_PM, shipping, high_risk, bump, external);
+        functions.logger.info(" ❷ [DRAFT ORDER] - Created 👍🏻");
     } 
   
     return SQR_PI;

@@ -155,6 +155,7 @@ import { shopifyRequest } from "./shopify";
     shipping: Address | null,
     high_risk: boolean,
     bump: boolean,
+    external?: "" | "SHOPIFY" | "BIG_COMMERCE" | "SHINEON" | undefined
   ) => {
 
     const {
@@ -243,11 +244,12 @@ import { shopifyRequest } from "./shopify";
       if (addresses && addresses.length > 0) {
         addresses.map(addy => {
           if (addy.type === "SHIPPING" || addy.type === "BOTH") {
-            address = address
+            address = addy
           }
         })
       }
-      handleSuccessPayment(customer, product, STRIPE_PI, STRIPE_PM, shipping, high_risk, bump);
+      functions.logger.info(" ❷ [EXTERNAL] ", external);
+      handleSuccessPayment(customer, product, STRIPE_PI, STRIPE_PM, shipping, high_risk, bump, external);
       functions.logger.info(" ❷ [DRAFT ORDER] - Created 👍🏻");
     }
     return STRIPE_PI;

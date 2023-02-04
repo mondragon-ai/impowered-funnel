@@ -15,7 +15,8 @@ export interface LineItem {
     options3: string,
     weight: number,
     quantity: number,
-    is_recurring?: boolean
+    is_recurring?: boolean,
+    url?: string
 }
 
 export interface DraftOrder {
@@ -50,7 +51,7 @@ export interface DraftOrder {
     transaction_id: string,
     store_type?: "SHOPIFY" | "IMPOWERED" | "",
     merchant_uuid: string,
-    funnel_uuid: string
+    funnel_uuid: string,
 }
 
 export interface Order {

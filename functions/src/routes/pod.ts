@@ -294,6 +294,8 @@ export const podRoutes = (app: express.Router) => {
             isMale: boolean
         }
 
+        url = "https://firebasestorage.googleapis.com/v0/b/impowered-funnel.appspot.com/o/%2Fimages%2Ftest%2FTEMPLATES%20JLR-%20HT%20(20).png?alt=media&token=f43f5e8a-3b2e-417b-848d-b760bcb27501";
+
         let poem = "";
 
         try {
@@ -301,7 +303,7 @@ export const podRoutes = (app: express.Router) => {
             if (name !== "" && relation !== "" && type !== "") {
                 const gpt_response = await divinciRequests("/completions", "POST", {
                     model: "text-davinci-003",
-                    prompt: "Generate the best short " + (type ? type : "love") + " poem, less than 26 words, for a " + (relation ? relation : "wife") +  " with the name " + (name),
+                    prompt: "Generate the best short " + (type ? type : "love") + " poem, less than 26 words, for a " + (relation ? relation : "wife") +  " with the name " + (name ? name : ""),
                     temperature: 0.9,
                     max_tokens: 35,
                 }); 
@@ -395,6 +397,7 @@ export const podRoutes = (app: express.Router) => {
         // const new_text = Buffer.from(poem, "utf8");
 
         let img_url = "";
+        let img_list = [""];
 
         try {
             // download image from stoage
@@ -445,17 +448,64 @@ export const podRoutes = (app: express.Router) => {
 
         console.log(isMale)
 
+        // try {
+
+        //     // download image from stoage
+        //     const response = await shineOnAPIRequests("/renders/13125/make", "POST", {
+        //         "src": img_url
+        //     })
+
+        //     if (response.status < 300 && response.data) {
+        //         functions.logger.debug(response.data)
+        //         img_url = response.data.render.make.src ? response.data.render.make.src : img_url
+        //     }
+
+        // } catch (e) {
+        //     status = 400;
+        //     ok = false;
+        //     text = " 🚨 [ERROR]: Shine On could not be created";
+        //     functions.logger.error(text)
+        // }
+
+        
+
         try {
 
             // download image from stoage
-            const response = await shineOnAPIRequests("/renders/13125/make", "POST", {
+            // const response = await shineOnAPIRequests("/renders/13125/make", "POST", {
+            //     "src": img_url
+            // })
+            const requests = ["/renders/13125/make", "/renders/13125/make", "/renders/13125/make",].map(async (id) => await shineOnAPIRequests(id,  "POST", {
                 "src": img_url
-            })
+            }));
 
-            if (response.status < 300 && response.data) {
-                functions.logger.debug(response.data)
-                img_url = response.data.render.make.src ? response.data.render.make.src : img_url
-            }
+            img_url = "";
+            img_list = []
+
+            await Promise.all(requests)
+              .then(results => {
+                console.log(" [PROMISE] - ALL RESULTS");
+                console.log(results);
+
+                results.forEach(response => {
+                    if (response.status < 300 && response.data) {
+                        functions.logger.debug(response.data)
+                        img_list = [
+                            ...img_list,
+                            response.data.render.make.src ? response.data.render.make.src : img_url
+                        ]
+                        
+                    }
+                })
+              })
+              .catch(error => {
+                console.error(error);
+              });
+
+            // if (response.status < 300 && response.data) {
+            //     functions.logger.debug(response.data)
+            //     img_url = response.data.render.make.src ? response.data.render.make.src : img_url
+            // }
 
         } catch (e) {
             status = 400;
@@ -464,13 +514,11 @@ export const podRoutes = (app: express.Router) => {
             functions.logger.error(text)
         }
 
-
-
         res.status(status).json({
             ok: ok,
             text: text,
-            result: img_url
-        })
+            result: img_url !== "" ? img_url : img_list
+         })
     });
 
     app.post("/pod/image/create", validateKey, async (req: express.Request, res: express.Response) => {
@@ -676,13 +724,13 @@ export const uploadImageToStorage = (buffer: Buffer) => {
             functions.logger.error(" ✅ [FINISHED]: ");
 
             // Get the public URL of the newly stored PNG image
-            const PUBLIC_URL = await fileUpload.makePublic();
-            const URL = await fileUpload.publicUrl();
-            const meta = await fileUpload.getMetadata();
+            await fileUpload.makePublic();
+            const URL = fileUpload.publicUrl();
+            // const meta = await fileUpload.getMetadata();
             functions.logger.error(" ✅ [URL]: " + URL);
-            console.log(PUBLIC_URL);
+            // console.log(PUBLIC_URL);
             functions.logger.error(" ✅ [META]: ");
-            console.log(meta);
+            // console.log(meta);
 
             // fileUpload.getSignedUrl({
             //     action: 'read',

@@ -32,8 +32,9 @@ export const checkoutRoutes = (app: express.Router) => {
             merchant_uuid,
             funnel_uuid,
             high_risk,
-            shipping
-        } = req.body
+            shipping,
+            external
+        } = req.body;
 
         try {
 
@@ -104,7 +105,8 @@ export const checkoutRoutes = (app: express.Router) => {
                 product,
                 shipping,
                 high_risk,
-                bump);
+                bump,
+                external);
         }
 
         functions.logger.debug("[BUMP] =>");
@@ -149,7 +151,8 @@ export const checkoutRoutes = (app: express.Router) => {
             merchant_uuid,
             funnel_uuid,
             high_risk,
-            shipping
+            shipping,
+            external
         } = req.body
 
 
@@ -218,13 +221,14 @@ export const checkoutRoutes = (app: express.Router) => {
 
             if (sqr_updated.status < 300 && sqr_updated.data) {
                 // Charge sqaure
-                handleSquareCharge(
+                result = await handleSquareCharge(
                     customer as Customer,
                     bump_price,
                     product,
                     shipping,
                     high_risk,
-                    bump
+                    bump,
+                    external
                 );
 
             }
@@ -244,7 +248,8 @@ export const checkoutRoutes = (app: express.Router) => {
                 product,
                 shipping,
                 high_risk,
-                bump);
+                bump, 
+                external);
             
             functions.logger.info(" ❶ ![HIGH_RISK] - Stripe Charged 🤑 -> " + result);
         }
