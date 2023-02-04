@@ -6,6 +6,7 @@ import * as functions from "firebase-functions";
 import { getDocument } from "./firestore";
 import { Customer } from "../types/customers";
 import { Address } from "../types/addresses";
+import { shineOnAPIRequests } from "./requests";
 // import * as admin from "firebase-admin";
 
 // Admin Headers 
@@ -34,6 +35,66 @@ export const shopifyRequest = async (resource: string, method?: string, data?: a
   });
   return response;
 };
+
+export const createShineOnOrder = async (
+  draft_order: DraftOrder,
+  merchant_uuid: string,
+  customer: Customer,
+  url: string
+) => {
+  console.log(draft_order);
+  console.log(customer);
+  console.log(merchant_uuid);
+  console.log(url);
+  // "https://firebasestorage.googleapis.com/v0/b/impowered-funnel.appspot.com/o/%2Fimages%2Ftest%2F1674953183241.png?alt=media&token=bda7d1de-9dd3-4933-b79b-3fbc19a18b28"
+
+  let line_items: any[] = [];
+
+  draft_order?.line_items?.forEach(li => {
+    if (typeof li.variant_id == "number") {
+      line_items = [
+        {
+          sku: li.sku,
+          store_line_item_id: li.variant_id,
+          quantity: 1,
+          properties: {
+              print_url: url, 
+          }
+        } 
+      ] 
+    } 
+  });
+  console.log(line_items);
+
+  const address: Address[] | any[]  = draft_order.addresses.map(addy => {
+    if (addy.type === "BOTH" || addy.type === "SHIPPING" ) {
+      return addy
+    } else { return  } 
+  });
+  console.log(address);
+  const data = {
+    order: {
+        external_id: merchant_uuid,
+        source_id: merchant_uuid + "_" + (customer.id ?customer.id :""),
+        email: customer.email,
+        shipment_notification_url: "http://url.com/notification",
+        shipping_method: "standard-us",
+        line_items: line_items,
+        shipping_address: {
+            name: (customer.first_name ? customer.first_name : "") + " " +  (customer.last_name ? customer.last_name : ""),
+            address1: (address[0].line1 ? address[0].line1 : ""),
+            city: (address[0].city ? address[0].city : ""),
+            zip: (address[0].zip ? address[0].zip : "72704"),
+            country_code: (address[0].country ? address[0].country : "USD"),
+        }
+    }
+  }
+
+  console.log(data);
+  const result = await shineOnAPIRequests( "/orders", "POST", data);
+  console.log(result);
+}
+
 
 export const createShopifyOrder =  async (
     draft_order: DraftOrder,
