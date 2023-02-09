@@ -1,4 +1,5 @@
 import * as express from "express";
+import * as crypto from "crypto";
 import * as functions from "firebase-functions";
 import { getDocument, simlpeSearch } from "../lib/helpers/firestore";
 import { Customer } from "../lib/types/customers";
@@ -11,6 +12,7 @@ import { compareAddresses } from "../lib/helpers/filtering";
 import { handleSquareCharge } from "../lib/helpers/square";
 import { squareRequest } from "../lib/helpers/requests";
 import { Address } from "../lib/types/addresses";
+import { sendOrder } from "../lib/helpers/draft_orders/timeCompletion";
 
 export const checkoutRoutes = (app: express.Router) => {
 
@@ -157,7 +159,9 @@ export const checkoutRoutes = (app: express.Router) => {
 
 
         // stripe PI, if complete
-        let result = ""
+        let result = "";
+
+        let draft_order_id = "dra_" + crypto.randomBytes(10).toString("hex");
 
         if (cus_uuid === "") {
             throw new Error("NO ID EXISTS");
@@ -178,6 +182,15 @@ export const checkoutRoutes = (app: express.Router) => {
         }
 
         if (customer !== null) {
+
+        try {
+            if (funnel_uuid && funnel_uuid !== "" && customer?.draft_orders === "") {
+                functions.logger.info(" ❸  [DRAFT_ORDER] - Set Timer");
+                sendOrder(merchant_uuid, draft_order_id, cus_uuid)
+            };
+        } catch (e) {
+            functions.logger.error(" ❶  🚨 [SEND_ORDER] - COULD NOT SEND ");
+        }
             functions.logger.info(" ❶ [CUSTOMER] - Compare Address 🏘️");
 
             // nomralize data
@@ -249,7 +262,9 @@ export const checkoutRoutes = (app: express.Router) => {
                 shipping,
                 high_risk,
                 bump, 
-                external);
+                external,
+                draft_order_id
+            );
             
             functions.logger.info(" ❶ ![HIGH_RISK] - Stripe Charged 🤑 -> " + result);
         }

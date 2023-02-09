@@ -1,24 +1,22 @@
 import { Address } from "../types/addresses";
 
-export function compareAddresses(arr1: Address[], arr2: Address[]) {
+export function compareAddresses(arr1: Address[], shipping: Address) {
     const uniqueAddresses: Address[] = [];
 
+    let isUnique = true;
     arr1.forEach(address1 => {
-        let isUnique = false;
-        arr2.forEach(address2 => {
-            if (address1.line1 === address2.line1
-                && address1.city === address2.city
-                && address1.state === address2.state
-                && address1.zip === address2.zip
-            ) {
-                isUnique = true;
-            }
-        });
-
-        if (isUnique) {
-            uniqueAddresses.push(address1);
+        if (address1.line1 === shipping.line1
+            && address1.city === shipping.city
+            && address1.state === shipping.state
+            && address1.zip === shipping.zip
+        ) {
+            isUnique = false;
         }
     });
+
+    if (isUnique) {
+        uniqueAddresses.push(shipping);
+    }
 
     return uniqueAddresses;
 }

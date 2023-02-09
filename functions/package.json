@@ -32,11 +32,12 @@
     "firebase-functions": "^3.14.1",
     "fs": "^0.0.1-security",
     "node-fetch": "2.6.6",
-    "pdf-to-printer": "^5.4.0",
+    "pdf-to-printer": "^5.5.0",
     "puppeteer": "^19.4.1",
     "sharp": "^0.31.3",
     "stripe": "^9.13.0",
     "twitter-api-v2": "^1.12.10",
+    "unix-print": "^1.2.0",
     "xss-filters": "^1.2.7"
   },
   "devDependencies": {

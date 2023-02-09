@@ -2,19 +2,23 @@ export type Blog = {
     id: string,
     title: string,
     sub_title: string,
-    collection: string,
+    collection: "TRENDING" | "CULTURE" | "HEALTH" | "",
     original_text: string,
     new_text: string,
+    style: string,
+    author: string,
+    published_date: string,
     sections: [
         {
-            id: string,
-            type: "TEXT" | "VIDEO" | "IMAGE",
+            type: "TEXT" | "VIDEO" | "IMAGE" | "TWEET" | "POLL" | "",
             text: string, 
             video: string,
             image: string,
-            [key_name:string]: any
+            id: string,
+            tweet: string,
             option_one: string,
             option_two: string,
+            [key: string]: any
         }
     ],
     default_media_url: string,

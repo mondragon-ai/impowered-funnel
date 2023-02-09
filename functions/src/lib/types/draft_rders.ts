@@ -27,6 +27,7 @@ export interface DraftOrder {
     created_at: FirebaseFirestore.Timestamp,
     addresses: Address[],
     id?: string,
+    external_id?: string,
     phone?: string,
     checkout_url?: string
     type?: "FUNNEL" | "STORE",
@@ -49,7 +50,7 @@ export interface DraftOrder {
     fullfillment_status?: "PRINTED" | "SENT" | "TRANSIT" | "HOLD" | "DELIVERED" | "LOST",
     payment_status?: "PAID" | "UNPAID",
     transaction_id: string,
-    store_type?: "SHOPIFY" | "IMPOWERED" | "",
+    store_type?: "SHOPIFY" | "IMPOWERED" | "SHINEON" | "",
     merchant_uuid: string,
     funnel_uuid: string,
 }

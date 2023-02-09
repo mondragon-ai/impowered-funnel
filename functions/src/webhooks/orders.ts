@@ -7,7 +7,8 @@ import { createDocument, fetchFunnelAnalytics, getDocument, updateDocument } fro
 import { Customer } from "../lib/types/customers";
 import { Order } from "../lib/types/draft_rders";
 import { FunnelAnalytics, Analytics } from "../lib/types/analytics";
-import { sendThankYouEmail } from "../lib/helpers/twillio";
+// import { sendThankYouEmail } from "../lib/helpers/twillio";
+import { klavyioAPIRequests } from "../lib/helpers/requests";
 // import { SubscriptionAgreement} from "../lib/types/products";
 // import { Fulfillment } from "../lib/types/fulfillments";
 
@@ -248,7 +249,61 @@ export const orderCreated = functions.firestore
         merchant_uuid);
 
     if (customer && customer.email) {
-        await sendThankYouEmail(customer.email, line_items);
+        // await sendThankYouEmail(customer.email, line_items);
+
+        try {
+
+            const klav_resposnse = await klavyioAPIRequests("/profiles/", "POST", {
+                data: {
+                    type: "profile",
+                    attributes: {
+                        email: customer.email,
+                        first_name: (customer.first_name ? customer.first_name : ""),
+                        last_name: (customer.last_name ? customer.last_name : "")
+                    }
+                }
+            });
+
+            console.log(klav_resposnse);
+
+
+            if (klav_resposnse.status < 300 && klav_resposnse.data && klav_resposnse.data.id) {
+    
+                const final = await klavyioAPIRequests("/lists/UKNQnb/relationships/profiles/", "POST", {
+                    data: [
+                        {
+                            type: "profile",
+                            id: klav_resposnse.data.id
+                        }
+                    ]
+                });
+    
+                console.log(final);
+           }
+           
+           if (klav_resposnse.status == 409 && klav_resposnse.data.errors[0].meta.duplicate_profile_id) {
+    
+                console.log(klav_resposnse.data.errors[0].meta.duplicate_profile_id);
+                const final = await klavyioAPIRequests("/lists/UKNQnb/relationships/profiles/", "POST", {
+                    data: [
+                        {
+                            type: "profile",
+                            id: klav_resposnse.data.errors[0].meta.duplicate_profile_id
+                        }
+                    ]
+                });
+    
+                console.log(final);
+            }
+            
+        } catch (error) {
+            functions.logger.error(' ❶ Coould not send email.');
+            
+        }
+
     }
+
+
+
 
 });

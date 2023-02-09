@@ -155,7 +155,8 @@ import { shopifyRequest } from "./shopify";
     shipping: Address | null,
     high_risk: boolean,
     bump: boolean,
-    external?: "" | "SHOPIFY" | "BIG_COMMERCE" | "SHINEON" | undefined
+    external?: "" | "SHOPIFY" | "BIG_COMMERCE" | "SHINEON" | undefined,
+    draft_order_id?: string
   ) => {
 
     const {
@@ -249,7 +250,7 @@ import { shopifyRequest } from "./shopify";
         })
       }
       functions.logger.info(" ❷ [EXTERNAL] ", external);
-      handleSuccessPayment(customer, product, STRIPE_PI, STRIPE_PM, shipping, high_risk, bump, external);
+      handleSuccessPayment(customer, product, STRIPE_PI, STRIPE_PM, shipping, high_risk, bump, external, draft_order_id);
       functions.logger.info(" ❷ [DRAFT ORDER] - Created 👍🏻");
     }
     return STRIPE_PI;

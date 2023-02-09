@@ -3,8 +3,7 @@ import { DraftOrder, LineItem } from "../../types/draft_rders";
 import * as crypto from "crypto"
 import * as admin from "firebase-admin"
 import * as functions from "firebase-functions"
-import { createDocument, getDocument, updateDocument } from "../firestore";
-import { sendOrder } from "./timeCompletion";
+import { createDocument, createDocumentWthId, getDocument, updateDocument } from "../firestore";
 import { createShopifyCustomer, createShineOnOrder } from "../shopify";
 import { Customer } from "../../types/customers";
 
@@ -16,7 +15,8 @@ export const handleSuccessPayment = async (
     shipping: Address | null,
     high_risk: boolean,
     bump?: boolean,
-    external?: "SHOPIFY" | "BIG_COMMERCE" | "SHINEON" | ""
+    external?: "" | "SHOPIFY" | "BIG_COMMERCE" | "SHINEON" | undefined,
+    draft_order_id?: string
 ) => {
     let status = 500, text = " 🚨 [ERROR]: Likey internal problems 🤷🏻‍♂️. - handle success";
 
@@ -37,7 +37,7 @@ export const handleSuccessPayment = async (
     
     setTimeout(async () => {
         if (STRIPE_PI !== "" && id !== "") {
-            functions.logger.info(" ❸ [SHOPIFY] - Payment Intent was Successfull && Customer Exists");
+            functions.logger.info(" ❸ [PRE_ORDER_LOGIC] - Payment Intent was Successfull && Customer Exists");
 
             if (external === "SHOPIFY") {
                 const shopify = await createShopifyCustomer(shipping as Address, email);
@@ -69,7 +69,7 @@ export const handleSuccessPayment = async (
                     ],
                     tags: ["CLICK_FUNNEL"],
                     order_number: "SH-" + crypto.randomBytes(5).toString("hex").toUpperCase(),
-                    first_name: shipping?.name as string,
+                    first_name: (shipping?.name) ? shipping?.name as string : "",
                     updated_at: admin.firestore.Timestamp.now(),
                     created_at: admin.firestore.Timestamp.now(),
                     transaction_id: STRIPE_PI,
@@ -86,7 +86,7 @@ export const handleSuccessPayment = async (
                     draft_data = {
                         ...draft_data,
                         line_items: [
-                            ...draft_data.line_items,
+                            ...draft_data?.line_items,
                             {
                                 title: "Rush & Ensure",
                                 price: 399,
@@ -105,9 +105,7 @@ export const handleSuccessPayment = async (
                             }
                         ],
                     }
-                }
-
-                functions.logger.info(" ❹ [SHINEON] ", external);
+                };
 
                 if (external === "SHINEON") {
                     // TODO: CONVER TO PRODUCT.URL
@@ -119,13 +117,27 @@ export const handleSuccessPayment = async (
                         const result = JSON.parse(JSON.stringify(shineon));
         
                         functions.logger.info(" ❹ [SHINEON] - Order Created", {result});
-                        // if (result.customers[0] && result.customers[0].id != "") {
-                        //     functions.logger.info(" ❹ [SHINEON] - Order Created");
-                        // }
+                        functions.logger.info(" ❸ [ORDER] -  Order Created Ready 📦");
+                        // Create Order
+                        if (order_uuid === "") {
+
+                            draft_data = {
+                                ...draft_data,
+                                store_type: "SHINEON",
+                                external_id: result?.name ? result?.name : "",
+                                updated_at: admin.firestore.Timestamp.now(),
+                            };
+
+                            const order_res = await createDocument(merchant_uuid, "orders", "ord_", draft_data);
+                            if (order_res.status < 300 && order_res.data) {
+                                functions.logger.info(" ❸ [ORDER] -  Order Created 📦");
+                                order_uuid = order_res.data.id
+                            }
+                        }
                     }
                 }
     
-                if (funnel_uuid && funnel_uuid !== "") {
+                if (funnel_uuid && funnel_uuid !== "" && order_uuid === "") {
                     functions.logger.info(" ❸ [DRAFT_ORDER] - Funnel UUID Exists. Creating Draft Order 📦");
                     functions.logger.info(" ❸ [funnel_uuid] - > " + funnel_uuid);
                     functions.logger.info(" ❸ [draft_orders] - > " + customer.draft_orders);
@@ -135,7 +147,7 @@ export const handleSuccessPayment = async (
                         functions.logger.info(" ❸ [DRAFT_ORDER] - Create Draft Order 📦");
 
                         // Create Draft Order
-                        const draftOrder = await createDocument(merchant_uuid, "draft_orders", "dra_", draft_data);
+                        const draftOrder = await createDocumentWthId(merchant_uuid, "draft_orders", draft_order_id as string, draft_data);
                         if (draftOrder.status < 300) {
                             functions.logger.info(" ❹ [DRAFT_ORDER] - Draft Order Created 📦");
                             draft_orders_uuid = draftOrder?.data?.id
@@ -175,10 +187,12 @@ export const handleSuccessPayment = async (
                 } else {
                     functions.logger.info(" ❸ [ORDER] -  Order Created Ready📦");
                     // Create Order
-                    const order_res = await createDocument(merchant_uuid, "orders", "ord_", draft_data);
-                    if (order_res.status < 300 && order_res.data) {
-                        functions.logger.info(" ❸ [ORDER] -  Order Created 📦");
-                        order_uuid = order_res.data.id
+                    if (order_uuid === "") {
+                        const order_res = await createDocument(merchant_uuid, "orders", "ord_", draft_data);
+                        if (order_res.status < 300 && order_res.data) {
+                            functions.logger.info(" ❸ [ORDER] -  Order Created 📦");
+                            order_uuid = order_res.data.id
+                        }
                     }
                 }
                     
@@ -187,10 +201,6 @@ export const handleSuccessPayment = async (
             }
 
             try {
-                if (funnel_uuid && funnel_uuid !== "" && draft_orders_uuid !== "") {
-                    functions.logger.info(" ❸  [DRAFT_ORDER] - Set Timer");
-                    sendOrder(merchant_uuid, draft_orders_uuid, id)
-                };
                 functions.logger.info(" ❸  [CUSTOMER] - Update Customer 📦");
                 // Data to push to the primary DB
                 let update_data = {

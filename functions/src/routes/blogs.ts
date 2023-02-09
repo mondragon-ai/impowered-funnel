@@ -6,6 +6,10 @@ import { createDocument, getCollections, getDocument, simlpeSearch, updateDocume
 import { validateKey } from "./auth";
 import { divinciRequests } from "../lib/helpers/requests";
 import { Blog } from "../lib/types/blogs";
+// import puppeteer from "puppeteer";
+import fetch from "node-fetch";
+import * as cheerio from "cheerio";
+import * as crypto from "crypto";
 // import { fetchOrders } from "../lib/helpers/shopify";
 // import { storage } from "../firebase";
 // import fetch from "node-fetch";
@@ -31,6 +35,13 @@ type BlogVote = {
     blog?: Blog,
 }
 
+type BlogGenerateURL = {
+    merchant_uuid: string,
+    url: string,
+    original_text: string,
+    author: string,
+    collection_type: string,
+}
 type BlogGenerate = {
     merchant_uuid: string,
     original_text: string,
@@ -414,6 +425,229 @@ export const blogRoutes = (app: express.Router) => {
     });
 
 
+    app.post("/blogs/generate/url", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ✅ [BLOG ROUTE] - Ready to generate data for blog using URL");
+        let status = 400,
+            text = " 🚨 [ERROR]: Could not generate blog data",
+            ok = false;
+
+        let {
+            url,
+            merchant_uuid,
+        }: BlogGenerateURL = req.body as BlogGenerateURL; 
+
+        let new_text = "";
+        let original_text = "";
+
+        // TODO: Sanatize Data
+
+        try {
+
+            functions.logger.debug(" ❶ [URL] -> ", {url});
+            if (url !== "") {
+
+                status = 422;
+                const article_response = await fetch(url);
+
+                if (!article_response.ok) {
+                    throw new Error(`Failed to fetch article: ${article_response.statusText}`);
+                }
+
+                const html = await article_response.text();
+
+                const $ = cheerio.load(html);
+                const articleEl = $("article");
+
+                if (!articleEl.length) {
+                    throw new Error("Article not found");
+                }
+
+                const paragraphs = articleEl.find("p").toArray();
+                original_text = paragraphs.map((p) => $(p).text()).join("\n");
+            }
+            functions.logger.debug(" ❶ [URL] - New Text from Article > ", {original_text});
+            
+        } catch (e) {
+            functions.logger.debug(" 🚨 [URL]: Article doesnt exist");
+        }
+
+        try {
+
+            if (merchant_uuid !== "" && original_text !== "") {
+                const gpt_response = await divinciRequests("/completions", "POST", {
+                    model: "text-davinci-003",
+                    prompt: "Generate a new news article from the following article below: \n\n" + original_text,
+                    temperature: 0.9,
+                    max_tokens: 1000,
+                    frequency_penalty: 0,
+                    presence_penalty: 0.6,
+                }); 
+
+                if (gpt_response.status < 300 && gpt_response.data) {
+                    new_text = gpt_response?.data?.choices[0]?.text;
+                    status = 201;
+                    text = " 🎉 [SUCCESS]: New Blog Article generated. ";
+                    ok = true;
+                }
+               
+            }   
+            
+        } catch (e) {
+            functions.logger.error(text + " Likley a DaVinci Issue. Contact customer support.");
+        }
+
+
+        let head_line = "";
+
+        try {
+
+            if (merchant_uuid !== "" && original_text !== "") {
+                const gpt_response = await divinciRequests("/completions", "POST", {
+                    model: "text-davinci-003",
+                    prompt: "Generate the best headline from the following article below for a news article website: \n\n" + new_text ? new_text : original_text,
+                    temperature: 0.9,
+                    max_tokens: 35,
+                }); 
+
+                if (gpt_response.status < 300 && gpt_response.data) {
+                    head_line = gpt_response?.data?.choices[0]?.text;
+                    status = 201;
+                    text = " 🎉 [SUCCESS]: New Blog Article generated. ";
+                    ok = true;
+                }
+               
+            }   
+            
+        } catch (e) {
+            functions.logger.error(text + " Likley a DaVinci Issue. Contact customer support.");
+        }
+
+        let subheadline = "";
+
+        try {
+
+            if (merchant_uuid !== "" && original_text !== "") {
+                const gpt_response = await divinciRequests("/completions", "POST", {
+                    model: "text-davinci-003",
+                    prompt: "Generate the best subheadline from the following article below for a news article website: \n\n" + new_text ? new_text : original_text,
+                    temperature: 0.9,
+                    max_tokens: 50,
+                }); 
+
+                if (gpt_response.status < 300 && gpt_response.data) {
+                    subheadline = gpt_response?.data?.choices[0]?.text;
+                    status = 201;
+                    text = " 🎉 [SUCCESS]: New Blog Article generated. ";
+                    ok = true;
+                }
+               
+            }   
+            
+        } catch (e) {
+            functions.logger.error(text + " Likley a DaVinci Issue. Contact customer support.");
+        }
+
+        try {
+
+            if (merchant_uuid !== "" && original_text !== "") {
+                const gpt_response = await divinciRequests("/completions", "POST", {
+                    model: "text-davinci-003",
+                    prompt: "Generate the best subheadline from the following article below for a news article website: \n\n" + new_text ? new_text : original_text,
+                    temperature: 0.9,
+                    max_tokens: 50,
+                }); 
+
+                if (gpt_response.status < 300 && gpt_response.data) {
+                    subheadline = gpt_response?.data?.choices[0]?.text;
+                    status = 201;
+                    text = " 🎉 [SUCCESS]: New Blog Article generated. ";
+                    ok = true;
+                }
+               
+            }   
+            
+        } catch (e) {
+            functions.logger.error(text + " Likley a DaVinci Issue. Contact customer support.");
+        }
+
+        let blog = {
+            title: head_line !== "" ? head_line : "DIDNT GENERATE",
+            sub_title: subheadline  !== ""? subheadline : "DIDNT GENERATE",
+            original_text: url ?  url : "",
+            new_text: new_text ?  new_text : "",
+            collection: "TRENDING",
+            sections: [] as any,
+            style: "OBJECTIVE",
+            author: "Dr. Doom",
+            published_date: new Date().toLocaleDateString(),
+            updated_at: admin.firestore.Timestamp.now(),
+            created_at: admin.firestore.Timestamp.now(),
+        } as Blog;
+
+        let generated_sections: {
+            id: string,
+            type: string,
+            text: string,
+            image: "",
+            video: ""
+        }[] = []
+
+        if (new_text !== "") {
+            
+            new_text.split("\n\n").forEach(section => {
+                if (section) {
+                    generated_sections = [
+                        ...generated_sections,
+                        {
+                            id: "sec_" + crypto.randomBytes(10).toString("hex"),
+                            type: "TEXT",
+                            text: section.toString(),
+                            image: "",
+                            video: ""
+                        }
+                    ]
+                }
+            })
+
+            blog = {
+                ...blog,
+                sections: [
+                    ...blog.sections,
+                    ...generated_sections
+                ]
+            } as Blog;
+
+        } else {
+
+        }
+
+        try {
+            if (new_text !== "" && original_text !== "") {
+
+                const response = await createDocument(merchant_uuid, "blogs", "blo_", blog);
+    
+                if (response.status < 300 && response.data) {
+                    ok = true;
+                    text = " 🎉  [SUCCESS]: Blog successfully created 👽";
+                    status = 200;
+                }
+            }
+        } catch (e) {
+            functions.logger.error(text + " Likely due to creating blogs");
+        }
+
+
+        res.status(status).json({
+            ok: ok,
+            text: text, 
+            result: {
+                new_text,
+                head_line,
+                subheadline
+            }
+        })
+
+    });
 
 
     app.post("/blogs/vote", validateKey, async (req: express.Request, res: express.Response) => {

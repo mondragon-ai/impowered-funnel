@@ -7,7 +7,7 @@ import { getDocument } from "./firestore";
 import { Customer } from "../types/customers";
 import { Address } from "../types/addresses";
 import { shineOnAPIRequests } from "./requests";
-// import * as admin from "firebase-admin";
+import * as crypto from "crypto";
 
 // Admin Headers 
 export const HEADERS_ADMIN = {
@@ -71,11 +71,11 @@ export const createShineOnOrder = async (
       return addy
     } else { return  } 
   });
-  console.log(address);
+  // console.log(address);
   const data = {
     order: {
         external_id: merchant_uuid,
-        source_id: merchant_uuid + "_" + (customer.id ?customer.id :""),
+        source_id: merchant_uuid.toLocaleUpperCase() + "_" + crypto.randomBytes(5).toString('hex').toLocaleUpperCase(),
         email: customer.email,
         shipment_notification_url: "http://url.com/notification",
         shipping_method: "standard-us",
@@ -90,9 +90,13 @@ export const createShineOnOrder = async (
     }
   }
 
-  console.log(data);
+  // console.log(data);
   const result = await shineOnAPIRequests( "/orders", "POST", data);
   console.log(result);
+  console.log(result.data);
+  if (result.data && result.status < 300) {
+    return result.data.order;
+  }
 }
 
 

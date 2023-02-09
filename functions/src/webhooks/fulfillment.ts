@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-// import * as crypto from "crypto";
+import fetch from "node-fetch";
 // import { updateAnalyticsOnOrderSuccess } from "../lib/helpers/analytics/update";
 // import { getToday } from "../lib/helpers/date";
 // import { createDocument, getDocument, getFunnelDocument, updateDocument } from "../lib/helpers/firestore";
@@ -10,9 +10,39 @@ import { Fulfillment } from "../lib/types/fulfillments";
 import { shipEngineAPIRequests } from "../lib/helpers/requests";
 import { Address } from "../lib/types/addresses";
 import { updateDocument } from "../lib/helpers/firestore";
+import { writeFileSync } from "fs";
 // import { SubscriptionAgreement} from "../lib/types/products";
 // import { Fulfillment } from "../lib/types/fulfillments";
+import * as fs from "fs"
 
+
+import { exec } from "child_process";
+import * as util from "util";
+export const execAsync = util.promisify(exec);
+
+export default async function customPrint(
+    file: string,
+    printer?: string,
+    options?: string[]
+  ): Promise<{ stdout: string; stderr: string; [any: string]: any}> {
+    if (!file) throw "No file specified";
+    if (!fs.existsSync(file)) throw "No such file";
+    
+    const args = [];
+    if (printer) {
+      args.push(`-d "${printer}"`);
+    }
+    if (options) {
+      if (!Array.isArray(options))
+        throw "options should be an array";
+      options.forEach((arg) => args.push(arg));
+    }
+    args.push('"' + file +'"');
+    console.log("🖨️ -> ");
+    console.log(`lp ${args.join(" ")}`);
+  
+    return execAsync(`lp ${args.join(" ")}`);
+}
 
 export const fulfillmentCreated = functions.firestore
 .document('merchants/{merhcantId}/fulfillments/{fulfillmentId}')
@@ -107,7 +137,8 @@ export const fulfillmentCreated = functions.firestore
         const response = await updateDocument(MERCHANT_UUID, "fulfillments", (id as string), {
             ...fulfillment,
             updated_at: admin?.firestore?.Timestamp?.now(),
-            label_url: label_url !== "" ? label_url : ""
+            label_url: label_url !== "" ? label_url : "",
+
         })
 
         functions.logger.debug(" ====> FULFILLMENT UPDATED");
@@ -115,5 +146,20 @@ export const fulfillmentCreated = functions.firestore
     } catch (e) {
         
     }
-    
+
+    if (label_url !== "") {
+
+        const response = await fetch(label_url);
+        const buffer = await response.arrayBuffer();
+        const file = Buffer.from(buffer);
+
+
+        const filePath = "./label_file.png";
+        writeFileSync(filePath, file);
+        functions.logger.debug(" ====> WROTE FILE  🎉 ");
+        
+        const printes_response = await customPrint(filePath, "Printer_ThermalPrinter", ["-n 1", "-o media=4x6in ", "-o orientation-requested=1", "-o fit-to-page "]);
+        functions.logger.debug(" ====> FULFILLMENT PRINTED.");
+        console.log(printes_response);
+    }
 });
