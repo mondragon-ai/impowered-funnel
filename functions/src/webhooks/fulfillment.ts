@@ -74,6 +74,8 @@ export const fulfillmentCreated = functions.firestore
     }
 
     try {
+        // TODO: Calculate SUM(wt) && unit
+        // TODO: Case switch based dimentions || "se-3347170"
         const response = await shipEngineAPIRequests("/labels", "POST", {
             shipment: {
                 carrier_id: "se-3347170",
@@ -102,7 +104,7 @@ export const fulfillmentCreated = functions.firestore
                 test_label: false,
                 validate_address: "no_validation",
                 label_download_type: "url",
-                label_format: "pdf",
+                label_format: "png",
                 display_scheme: "label",
                 label_layout: "4x6",
                 packages: [
@@ -138,7 +140,7 @@ export const fulfillmentCreated = functions.firestore
             ...fulfillment,
             updated_at: admin?.firestore?.Timestamp?.now(),
             label_url: label_url !== "" ? label_url : "",
-
+            status: label_url !== "" ? true : false,
         })
 
         functions.logger.debug(" ====> FULFILLMENT UPDATED");

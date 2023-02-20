@@ -2,7 +2,7 @@ import * as express from "express";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin"; 
 import { createCustomerPayment } from "../lib/helpers/customers/create";
-import { createDocument, createFunnelAnalytics, fetchFunnelAnalytics, getCollections, getDocument, updateFunnelAnalytics } from "../lib/helpers/firestore";
+import { createDocument, createFunnelAnalytics, fetchFunnelAnalytics, getCollections, getDocument, getPaginatedCollections, updateFunnelAnalytics } from "../lib/helpers/firestore";
 import { FunnelAnalytics } from "../lib/types/analytics";
 import { getToday } from "../lib/helpers/date";
 import { validateKey } from "./auth";
@@ -273,6 +273,51 @@ export const customerRoute = (
                     result = [response?.data as Customer];
                     size = response?.data?.size ? response?.data?.size : 1;
                 }
+            }
+
+        } catch (e) {
+            text = "ERROR: Likely a problem fetching a customer";
+            status = 500;
+            ok = false;
+            functions.logger.error(text);
+            throw new Error(text);
+        }
+
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: {
+                size: size,
+                customers: result
+            }
+        })
+    });
+
+    /**
+     * Search & return users: 
+     */
+    app.post("/customers/next", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ✅ [CUSTOMERS]: Customers Paginate Search Start Route");
+        let status = 200,
+            text = "SUCCESS: Customer(s) sucessfully fetched",
+            result: Customer[] = [],
+            size = 0,
+            ok = true;
+
+        // if valid
+        const merchant_uuid = req.body.merchant_uuid;
+        const seconds = req.body.start | 0;
+        functions.logger.debug(seconds);
+
+        try {
+
+            const start = admin.firestore.Timestamp.fromMillis(seconds * 1000);
+            functions.logger.debug(start);
+
+            const response = await getPaginatedCollections(merchant_uuid, "customers", start);
+            if (response?.data?.collection && response.status < 300) {
+                result = response?.data?.collection;
+                size = response?.data?.size ? response?.data?.size : 1;
             }
 
         } catch (e) {

@@ -269,7 +269,7 @@ export const orderCreated = functions.firestore
 
             if (klav_resposnse.status < 300 && klav_resposnse.data && klav_resposnse.data.id) {
     
-                const final = await klavyioAPIRequests("/lists/UKNQnb/relationships/profiles/", "POST", {
+                const final = await klavyioAPIRequests("/lists/YdgzFq/relationships/profiles/", "POST", {
                     data: [
                         {
                             type: "profile",
@@ -284,7 +284,7 @@ export const orderCreated = functions.firestore
            if (klav_resposnse.status == 409 && klav_resposnse.data.errors[0].meta.duplicate_profile_id) {
     
                 console.log(klav_resposnse.data.errors[0].meta.duplicate_profile_id);
-                const final = await klavyioAPIRequests("/lists/UKNQnb/relationships/profiles/", "POST", {
+                const final = await klavyioAPIRequests("/lists/YdgzFq/relationships/profiles/", "POST", {
                     data: [
                         {
                             type: "profile",

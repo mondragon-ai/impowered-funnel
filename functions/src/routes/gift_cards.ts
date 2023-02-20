@@ -1,7 +1,7 @@
 import * as express from "express";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { createDocument, getCollections, getDocument } from "../lib/helpers/firestore";
+import { createDocument, getCollections, getDocument, getPaginatedCollections } from "../lib/helpers/firestore";
 import { validateKey } from "./auth";
 import { SubscriptionAgreement } from "../lib/types/products";
 
@@ -89,6 +89,51 @@ export const giftCardRoutes = (app: express.Router) => {
 
         } catch (e) {
             text = "ERROR: Likely a problem fetching a gift card(s)";
+            status = 500;
+            ok = false;
+            functions.logger.error(text);
+            throw new Error(text);
+        }
+
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: {
+                size: size,
+                gift_cards: result
+            }
+        })
+    });
+
+    /**
+     * Search & return users: 
+     */
+    app.post("/gift_cards/next", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ✅ [ORDERS]: gift_cards Paginate Next Start Route");
+        let status = 200,
+            text = " 🎉 [SUCCESS]: gift_cards sucessfully fetched",
+            result: SubscriptionAgreement[] = [],
+            size = 0,
+            ok = true;
+
+        // if valid
+        const merchant_uuid = req.body.merchant_uuid;
+        const seconds = req.body.start | 0;
+        functions.logger.debug(seconds);
+
+        try {
+
+            const start = admin.firestore.Timestamp.fromMillis(seconds * 1000);
+            functions.logger.debug(start);
+
+            const response = await getPaginatedCollections(merchant_uuid, "gift_cards", start);
+            if (response?.data?.collection && response.status < 300) {
+                result = response?.data?.collection;
+                size = response?.data?.size ? response?.data?.size : 1;
+            }
+
+        } catch (e) {
+            text = " 🚨 [ERROR]: Likely a problem fetching a gift_cards";
             status = 500;
             ok = false;
             functions.logger.error(text);

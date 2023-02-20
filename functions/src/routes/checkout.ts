@@ -214,7 +214,7 @@ export const checkoutRoutes = (app: express.Router) => {
         const price = product.price ? Number(product.price) : 0;
         const bump_price = bump ? (399 + price) : price;
 
-        if (high_risk) {
+        if (high_risk && customer?.square?.UUID) {
             functions.logger.info(" ❶ [HIGH__RISK] - Square Update 🤑");
 
             shipping = shipping as Address
@@ -241,7 +241,8 @@ export const checkoutRoutes = (app: express.Router) => {
                     shipping,
                     high_risk,
                     bump,
-                    external
+                    external,
+                    draft_order_id
                 );
 
             }
@@ -325,5 +326,6 @@ export const checkoutRoutes = (app: express.Router) => {
             text: text,
             data: data
         })
-    })
+    });
+    
 }

@@ -104,12 +104,23 @@ export const createShopifyOrder =  async (
     draft_order: DraftOrder,
     cus_uuid: string,
 ) => {
-
     const MERCHAND_UUID = "50rAgweT9PoQKs5u5o7t";
-
     const response = await getDocument(MERCHAND_UUID, "customers", cus_uuid);
-
     const customer: Customer = response.data as Customer;
+    let address: (Address | null)[] = {} as (Address | null)[];
+
+    if (customer && customer.addresses) {
+      address = customer.addresses.map(addy => {
+        if (addy.type === "BOTH" || addy.type === "SHIPPING") return addy;
+        else { return null};
+      })
+    }
+    if (draft_order && draft_order.addresses) {
+      address = draft_order.addresses.map(addy => {
+        if (addy.type === "BOTH" || addy.type === "SHIPPING") return addy;
+        else { return null};
+      })
+    }
 
     const data = {
         order: {
@@ -119,13 +130,23 @@ export const createShopifyOrder =  async (
             customer:{
                 id: customer?.shopify_uuid
             },
-            use_customer_default_address:true,
             tags: "CUSTOM_CLICK_FUNNEL",
-            shipping_line: {
-            custom: "STANDARD_SHIPPING",
-            price: 5.99,
-            title: "Standard Shipping"
-            }
+            shipping_lines: [
+                {
+                  custom  : true,
+                  price : "5.99",
+                  title : "Standard Shipping"
+                }
+            ],
+            shipping_address:{
+                name: (customer.first_name ? customer.first_name : "") + (customer.last_name ? customer.last_name : customer.first_name && customer.last_name  ? customer.last_name : "null" ),
+                address1: address[0]?.line1 ? address[0]?.line1 : "",
+                phone:"",
+                city: address[0]?.city ? address[0]?.city : "",
+                province: address[0]?.state ? address[0]?.state : "",
+                country:"US",
+                zip:address[0]?.zip ? address[0]?.zip : "72704"
+            },
         }
     }
 

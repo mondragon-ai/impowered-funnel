@@ -25,7 +25,8 @@ export const handleSquareCharge = async (
     shipping: Address | null,
     high_risk: boolean,
     bump: boolean,
-    external?: "" | "SHOPIFY" | "BIG_COMMERCE" | "SHINEON" | undefined
+    external?: "" | "SHOPIFY" | "BIG_COMMERCE" | "SHINEON" | undefined,
+    draft_order_id?: string
 ) => {
   
     const {
@@ -123,7 +124,7 @@ export const handleSquareCharge = async (
           })
         }
         functions.logger.info(" ❷ [EXTERNAL] ", external);
-        handleSuccessPayment(customer, product, SQR_PI, SQAURE_PM, shipping, high_risk, bump, external);
+        handleSuccessPayment(customer, product, SQR_PI, SQAURE_PM, shipping, high_risk, bump, external, draft_order_id);
         functions.logger.info(" ❷ [DRAFT ORDER] - Created 👍🏻");
     } 
   

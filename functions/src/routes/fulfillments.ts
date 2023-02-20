@@ -2,7 +2,7 @@ import * as express from "express";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import fetch from "node-fetch";
-import { createDocument, getCollections, getDocument } from "../lib/helpers/firestore";
+import { createDocument, getCollections, getDocument, getPaginatedCollections } from "../lib/helpers/firestore";
 import { validateKey } from "./auth";
 import { Fulfillment } from "../lib/types/fulfillments";
 import { writeFileSync } from "fs";
@@ -182,4 +182,52 @@ export const fulfillmentRoutes = (app: express.Router) => {
             }
         })
     });
+
+    
+
+    /**
+     * Search & return users: 
+     */
+    app.post("/fulfillments/next", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ✅ [FULLFILMENT]: Fulfillments Paginate Next Start Route");
+        let status = 200,
+            text = " 🎉 [SUCCESS]: Fulfillments sucessfully fetched",
+            result: Fulfillment[] = [],
+            size = 0,
+            ok = true;
+
+        // if valid
+        const merchant_uuid = req.body.merchant_uuid;
+        const seconds = req.body.start | 0;
+        functions.logger.debug(seconds);
+
+        try {
+
+            const start = admin.firestore.Timestamp.fromMillis(seconds * 1000);
+            functions.logger.debug(start);
+
+            const response = await getPaginatedCollections(merchant_uuid, "fulfillments", start);
+            if (response?.data?.collection && response.status < 300) {
+                result = response?.data?.collection;
+                size = response?.data?.size ? response?.data?.size : 1;
+            }
+
+        } catch (e) {
+            text = " 🚨 [ERROR]: Likely a problem fetching a fulfillments";
+            status = 500;
+            ok = false;
+            functions.logger.error(text);
+            throw new Error(text);
+        }
+
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: {
+                size: size,
+                fulfillments: result
+            }
+        })
+    });
+    
 }

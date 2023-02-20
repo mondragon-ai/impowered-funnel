@@ -266,6 +266,60 @@ export const createDocument = async (
     }
 }
 
+export const getPaginatedCollections = async (
+    merchant_uuid: string,
+    collection: string,
+    start?: any,
+) => {
+
+    // Data for validation in parent
+    let text = "SUCCESS: Document fetched 👍🏻", status = 200;
+
+    let response = {} as FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> ; 
+    let colleciton: any[] = []; 
+    let size = 0; 
+
+    try {
+        console.log(" ====> [STATE && OPERATOR]")
+        response = await db
+        .collection("merchants")
+        .doc(merchant_uuid)
+        .collection(collection)
+        .orderBy('updated_at', "desc")
+        .startAfter(start)
+        .limit(25)
+        .get()
+
+    } catch {
+        text = " - Could not fetch collection. check collection";
+        status = 400;
+    }
+    
+    if (response.size > 0) {
+        size = response.size;
+        response.forEach(item => {
+            colleciton = [
+                ...colleciton,
+                item.data()
+            ]
+        })
+    } else {
+        text = " - Nothing wrong, just not found";
+        status = 420;
+        size = 0;
+    }
+
+    // return either result 
+    return {
+        text: text,
+        status: status,
+        data: {
+            size: size,
+            collection: colleciton ? colleciton : null
+        }
+    }
+}
+
 export const getCollections = async (
     merchant_uuid: string,
     collection: string,
@@ -325,7 +379,7 @@ export const getCollections = async (
             .collection("merchants")
             .doc(merchant_uuid)
             .collection(collection)
-            .orderBy('created_at', "desc")
+            .orderBy('updated_at', "desc")
             .limit(25)
             .get()
     
@@ -424,6 +478,44 @@ export const simlpeSearch = async (
     .doc(merchant_uuid)
     .collection(collection)
     .where(key, "==", data)
+    .get()
+
+    if (result.empty) {
+        functions.logger.error(" 🚨 [SEARCHING] -  ❸ Document NOT found");
+        text = " - Document NOT updated 👎🏻";
+        status = 400;
+        result = null;
+    }
+
+    return {
+        text: text,
+        status: status,
+        data: {
+            list: result 
+        }
+    }
+}
+
+
+
+export const complexSearch = async (
+    merchant_uuid: string,
+    collection: string,
+    key: string,
+    data: any,
+    start?: any,
+) => {
+    // Data for validation in parent
+    let text = " - Document found 👍🏻", status = 200;
+    // let size = 0; 
+
+    let result: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null = await db
+    .collection("merchants")
+    .doc(merchant_uuid)
+    .collection(collection)
+    .orderBy('updated_at', "desc")
+    .startAfter(start)
+    .limit(25)
     .get()
 
     if (result.empty) {
