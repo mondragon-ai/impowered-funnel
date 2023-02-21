@@ -196,7 +196,7 @@ export const dailyCronJob = functions
             let temp_src = "";
 
 
-            console.log("Search Children 👍🏻 ")
+            console.log("Search Children [TOP] 👍🏻 ")
             const children: any[] = await (el as unknown as any).children as any[];
             await children.forEach(async (child) => {
                 const today = await getToday();
@@ -226,9 +226,9 @@ export const dailyCronJob = functions
                               collection_type: "TRENDING"
                             })
                           })
-                          functions.logger.debug(" 🥸 [REPSONSE] - > ", {response});
+                          functions.logger.debug(" 🥸 [REPSONSE - TOP] - > ", {response});
                           if (response.ok) {
-                            functions.logger.debug(" 🎉 [SUCCESS] - Blog created from this URL > ", {temp_src});
+                            functions.logger.debug(" 🎉 [SUCCESS = TOP] - Blog created from this URL > " + temp_src);
                           }
                         } else {
                           functions.logger.debug(" 🚨 [URL]: Blog could not be created ");
@@ -287,7 +287,7 @@ export const dailyCronJob = functions
         await articleEl.each(async (i, el) => {
           let temp_src = "";
 
-          console.log("Search Children 👍🏻 ")
+          console.log("Search Children [TECH] 👍🏻 ")
           const children: any[] = await (el as unknown as any).children as any[];
           await children.forEach(async (child) => {
 
@@ -310,7 +310,7 @@ export const dailyCronJob = functions
                   })
                   functions.logger.debug(" 🥸 [REPSONSE - Tech] - > ", {response});
                   if (response.ok) {
-                    functions.logger.debug(" 🎉 [SUCCESS] - Blog created from this URL > ", {temp_src});
+                    functions.logger.debug(" 🎉 [SUCCESS = TECH] - Blog created from this URL > " + temp_src);
                   }
                 } else {
                   functions.logger.debug(" 🚨 [URL]: Blog could not be created ");
@@ -372,7 +372,7 @@ try {
         let temp_src = "";
 
 
-        console.log("Search Children 👍🏻 ")
+        console.log("Search Children [HEALTH] 👍🏻 ")
         const children: any[] = await (el as unknown as any).children as any[];
         await children.forEach(async (child) => {
             const today = await getToday();
@@ -390,7 +390,7 @@ try {
                 if (yesterday <= (pubDate.getTime() / 1000)) {
                     k = k + 1;
                     functions.logger.debug(" 👍🏻 [URL] -> " + temp_src);
-                    if (temp_src !== "" && temp_src.includes('index.html')) {
+                    if (temp_src !== "") {
                       const response = await fetch("https://us-central1-impowered-funnel.cloudfunctions.net/funnel/blogs/generate/url", {
                         method: "POST",
                         headers: {
@@ -404,7 +404,7 @@ try {
                       })
                       functions.logger.debug(" 🥸 [REPSONSE - HEALTH] - > ", {response});
                       if (response.ok) {
-                        functions.logger.debug(" 🎉 [SUCCESS] - Blog created from this URL > ", + temp_src);
+                        functions.logger.debug(" 🎉 [SUCCESS - HEALTH] - Blog created from this URL > " + temp_src);
                       }
                     } else {
                       functions.logger.debug(" 🚨 [URL]: Blog could not be created ");
@@ -431,6 +431,104 @@ try {
 } catch (e) {
   functions.logger.debug(" 🚨 [URL]: Article doesnt exist");
 }
+
+original_text = [];
+url = "https://moxie.foxnews.com/google-publisher/politics.xml";
+
+try {
+  
+  functions.logger.debug(" ❶ [URL] -> ", url);
+  if (url !== "") {
+
+      const article_response = await fetch(url);
+
+      if (!article_response.ok) {
+          throw new Error(`Failed to fetch article: ${article_response.statusText}`);
+      }
+
+      const xml = await article_response.text();
+
+      const $ = await cheerio.load(xml, { xmlMode: true });
+  
+      // $('link').each(function(i, el) {
+      //   original_text.push($((el)).text());
+      // });
+
+      const articleEl = await $("item");
+
+      if (!articleEl.length) {
+          throw new Error("Article not found");
+      }
+
+      
+
+      let k = 0;
+      // let isNew = false;
+
+      await articleEl.each(async (i, el) => {
+        let temp_src = "";
+
+
+        console.log("Search Children [POLITICS] 👍🏻 ")
+        const children: any[] = await (el as unknown as any).children as any[];
+        await children.forEach(async (child) => {
+            const today = await getToday();
+            const yesterday = (today) - (12 * 60 * 60 );
+
+            console.log("New Child -> " + child.name)
+
+            if (child.name == "guid") {
+              temp_src =  $(child).text();
+              console.log(temp_src);
+            }
+
+            if (child.name == "pubDate") {
+                const pubDate = new Date($(child).text());
+                if (yesterday <= (pubDate.getTime() / 1000)) {
+                    k = k + 1;
+                    functions.logger.debug(" 👍🏻 [URL] -> " + temp_src);
+                    if (temp_src !== "") {
+                      const response = await fetch("https://us-central1-impowered-funnel.cloudfunctions.net/funnel/blogs/generate/url", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "impowered-api-key": "19uq99myrxd6jmp19k5mygo5d461l0"
+                        },
+                        body: JSON.stringify({
+                          url: temp_src,
+                          collection_type: "POLITICS"
+                        })
+                      })
+                      functions.logger.debug(" 🥸 [REPSONSE - POLITICS] - > ", {response});
+                      if (response.ok) {
+                        functions.logger.debug(" 🎉 [SUCCESS = POLITICS] - Blog created from this URL > " + temp_src);
+                      }
+                    } else {
+                      functions.logger.debug(" 🚨 [URL]: Blog could not be created ");
+                    }
+                        
+                    // isNew = false;
+                    temp_src = "";
+                    // isNew = true;
+                }
+            }
+            
+        })
+        // console.log(" isNew -> " + isNew);
+            
+        // if (isNew) {
+        //   original_text = [...original_text, temp_src];
+        // }
+      });
+
+    //   const paragraphs = articleEl.find("link").toArray();
+    //   original_text = paragraphs.map((p) => $(p).text());
+  }
+  
+} catch (e) {
+  functions.logger.debug(" 🚨 [URL]: Article doesnt exist");
+}
+
 
   //   try {
 

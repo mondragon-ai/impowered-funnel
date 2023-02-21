@@ -342,7 +342,7 @@ export const klavyioAPIRequests = async (
         })
     }
 
-    console.log(response)
+    // console.log(response)
     let result = null;
 
     if (response != null && response.status !== 204) {
@@ -355,7 +355,7 @@ export const klavyioAPIRequests = async (
         text = " - Klavyio fetched " + resource, 
         status = response.status;
     }
-    console.log(result, response.status)
+    // console.log(result, response.status)
 
     return {
         text,

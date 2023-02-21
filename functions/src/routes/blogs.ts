@@ -145,6 +145,7 @@ export const blogRoutes = (app: express.Router) => {
 
     
     });
+
     app.post("/blogs/create", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ✅ [BLOG ROUTE] - Ready to creaete");
         let status = 400,
@@ -186,7 +187,6 @@ export const blogRoutes = (app: express.Router) => {
         })
 
     });
-
 
     app.post("/blogs", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ✅ [BLOG ROUTE] - Ready to fetch blogs");
@@ -251,7 +251,6 @@ export const blogRoutes = (app: express.Router) => {
 
     });
 
-
     app.post("/blogs/update", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ✅ [BLOG ROUTE] - Ready to Update blog");
         let status = 400,
@@ -288,10 +287,9 @@ export const blogRoutes = (app: express.Router) => {
         blog = {
             ...blog,
             updated_at: admin.firestore.Timestamp.now(),
-            default_media_url: default_media_url
+            default_media_url: default_media_url,
+            status: blog.title !== "" ? true : false
         }
-
-
 
         try {
 
@@ -338,7 +336,6 @@ export const blogRoutes = (app: express.Router) => {
         })
 
     });
-
 
     app.post("/blogs/collections", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ✅ [BLOG ROUTE] - Ready to fetch colleciton");
@@ -394,9 +391,6 @@ export const blogRoutes = (app: express.Router) => {
         })
 
     });
-
-
-
 
     app.post("/blogs/generate", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ✅ [BLOG ROUTE] - Ready to generate data for blog");
@@ -501,7 +495,6 @@ export const blogRoutes = (app: express.Router) => {
         })
 
     });
-
 
     app.post("/blogs/generate/url", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ✅ [BLOG ROUTE] - Ready to generate data for blog using URL");
@@ -726,7 +719,6 @@ export const blogRoutes = (app: express.Router) => {
         })
 
     });
-
 
     app.post("/blogs/vote", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ✅ [BLOG ROUTE] - Ready to vote for a blog poll.");

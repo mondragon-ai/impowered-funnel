@@ -52,6 +52,7 @@ export const marketingRoutes = (app: express.Router) => {
         functions.logger.debug(" ✅ [BLOG ROUTE] - Ready to creaete");
         let status = 400,
             text =  " 🚨 [ERROR]: Could not send email",
+            result = 400,
             ok = false;
 
         const {
@@ -113,6 +114,8 @@ export const marketingRoutes = (app: express.Router) => {
 
             console.log(final.data);
             ok = true;
+            status = 200;
+            result = 200;
             text = " 🎉 [SUCCESS]: Email created in Klavyo & linked to Popoli Press";
        }
        
@@ -130,13 +133,98 @@ export const marketingRoutes = (app: express.Router) => {
 
             console.log(final.data);
             ok = true;
+            status = 200;
+            result = 200;
             text = " 🎉 [SUCCESS]: Email created in Klavyo & linked to Popoli Press";
         }
 
         res.status(status).json({
             ok: ok,
             text: text, 
-            result: null
+            result: result
+        })
+
+    });
+
+    app.post("/marketing/email/join", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ✅ [BLOG ROUTE] - Ready to creaete");
+        let status = 400,
+            text = " 🚨 [ERROR]: Could not send email",
+            result = 400,
+            ok = false;
+
+        const {
+            first_name,
+            last_name,
+            email
+        } = req.body as SendWelcomeEmail;
+
+        let response = {} as any
+
+        try {
+
+            const klav_resposnse = await klavyioAPIRequests("/profiles/", "POST", {
+                data: {
+                     type: "profile",
+                     attributes: {
+                          email: email,
+                          first_name: first_name,
+                          last_name: last_name
+                     }
+                }
+           });
+
+           status = klav_resposnse.status;
+           response = klav_resposnse.data;
+            
+        } catch (error) {
+            functions.logger.error(' ❶ Coould not send email.');
+            
+        }
+
+
+        if (status < 300 && response && response.data.id) {
+
+            console.log(response);
+            const final = await klavyioAPIRequests("/lists/UKNQnb/relationships/profiles/", "POST", {
+                data: [
+                    {
+                        type: "profile",
+                        id: response.data.id
+                    }
+                ]
+            });
+
+            console.log(final.data);
+            status = 200;
+            result = 200;
+            ok = true;
+            text = " 🎉 [SUCCESS]: Email created in Klavyo & linked to Popoli Press";
+       }
+       
+       if (status == 409 && response.errors[0].meta.duplicate_profile_id) {
+
+            console.log(response.errors[0].meta.duplicate_profile_id);
+            const final = await klavyioAPIRequests("/lists/UKNQnb/relationships/profiles/", "POST", {
+                data: [
+                    {
+                        type: "profile",
+                        id: response.errors[0].meta.duplicate_profile_id
+                    }
+                ]
+            });
+
+            console.log(final.data);
+            ok = true;
+            status = final.status;
+            result = 204;
+            text = " 🎉 [SUCCESS]: Email created in Klavyo & linked to Popoli Press";
+        }
+
+        res.status(status).json({
+            ok: ok,
+            text: text, 
+            result: result
         })
 
     });

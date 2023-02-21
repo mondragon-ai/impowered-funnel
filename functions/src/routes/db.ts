@@ -11,7 +11,7 @@ const algolia = algoliasearch(
     process.env.X_ALGOLGIA_API_KEY as string,
 )
 
-const product_index = algolia.initIndex("prod_product_search_engine");
+const product_index = algolia.initIndex("prod_blog_search");
 
 export const dbManagerRoutes = (app: expres.Router) => {
     app.post("/algolia/collection/sync", validateKey, async (req: expres.Request, res: expres.Response) => {
