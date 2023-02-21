@@ -165,6 +165,7 @@ export const blogRoutes = (app: express.Router) => {
             ...blog,
             updated_at: admin.firestore.Timestamp.now(),
             created_at: admin.firestore.Timestamp.now(),
+            status: blog.title !== "" ? true : false,
         } as Blog;
 
         try {
@@ -588,9 +589,9 @@ export const blogRoutes = (app: express.Router) => {
             if (merchant_uuid !== "" && original_text !== "") {
                 const gpt_response = await divinciRequests("/completions", "POST", {
                     model: "text-davinci-003",
-                    prompt: "Create a short title for the following news article: \n\n" + new_text !== "" ? new_text : original_text,
+                    prompt: "In 10 words or less, create a short title for the following news article: \n\n" + new_text !== "" ? new_text : original_text,
                     temperature: 0.9,
-                    max_tokens: 35,
+                    max_tokens: 100,
                 }); 
 
                 if (gpt_response.status < 300 && gpt_response.data) {
@@ -608,14 +609,24 @@ export const blogRoutes = (app: express.Router) => {
 
         let subheadline = "";
 
+        const getRandomName = (names: string[]) => {
+            // Generate a random index between 0 and the length of the names array
+            const randomIndex = Math.floor(Math.random() * names.length);
+          
+            // Return the name at the random index
+            return names[randomIndex];
+        }
+        
+        const names = ['Richard Greentree', 'Monica Carlyle', 'Terri Bonner', 'Matt Couch'];
+
         try {
 
             if (merchant_uuid !== "" && original_text !== "") {
                 const gpt_response = await divinciRequests("/completions", "POST", {
                     model: "text-davinci-003",
-                    prompt: "Create a short enticing summary for the following news article: \n\n" + new_text ? new_text : original_text,
+                    prompt: "In 50 words or less, create a short enticing summary for the following news article: \n\n" + new_text ? new_text : original_text,
                     temperature: 0.9,
-                    max_tokens: 50,
+                    max_tokens: 100,
                 }); 
 
                 if (gpt_response.status < 300 && gpt_response.data) {
@@ -632,15 +643,15 @@ export const blogRoutes = (app: express.Router) => {
         }
 
         let blog = {
-            title: head_line !== "" ? head_line : "DIDNT GENERATE",
-            sub_title: subheadline  !== ""? subheadline : "DIDNT GENERATE",
+            title: head_line !== "" && head_line !== " " ? head_line : "",
+            sub_title: subheadline  !== ""? subheadline : "",
             original_text: url ?  url : "",
             new_text: new_text ?  new_text : "",
             collection: collection_type,
             sections: [] as any,
             style: "OBJECTIVE",
-            status: head_line !== "" && subheadline !== "" ? true : false,
-            author: "Richard Greentree",
+            status: head_line !== "" ? true : false,
+            author: getRandomName(names),
             published_date: new Date().toLocaleDateString(),
             updated_at: admin.firestore.Timestamp.now(),
             created_at: admin.firestore.Timestamp.now(),
@@ -658,7 +669,26 @@ export const blogRoutes = (app: express.Router) => {
 
         if (new_text !== "") {
             
-            new_text.split("\n\n").forEach(section => {
+            new_text.split("\n\n").forEach((section, i) => {
+                if (i == 3) {
+                    generated_sections = [
+                        ...generated_sections,
+                        {
+                            id: "sec_" + crypto.randomBytes(10).toString("hex"),
+                            type: "TEXT",
+                            text: section.toString(),
+                            image: "",
+                            video: ""
+                        },
+                        {
+                            id: "sec_" + crypto.randomBytes(10).toString("hex"),
+                            type: "IMAGE",
+                            text: "DEFAULT_IMG",
+                            image: img,
+                            video: ""
+                        },
+                    ]
+                }
                 if (section) {
                     generated_sections = [
                         ...generated_sections,
@@ -678,15 +708,25 @@ export const blogRoutes = (app: express.Router) => {
                 sections: [
                     ...blog.sections,
                     ...generated_sections,
-                    {
-                        id: "sec_" + crypto.randomBytes(10).toString("hex"),
-                        type: "IMAGE",
-                        text: "DEFAULT_IMG",
-                        image: img,
-                        video: ""
-                    },
                 ]
             } as Blog;
+
+            if (new_text.length <= 3) {
+                blog = {
+                    ...blog,
+                    sections: [
+                        ...blog.sections,
+                        ...generated_sections,
+                        {
+                            id: "sec_" + crypto.randomBytes(10).toString("hex"),
+                            type: "IMAGE",
+                            text: "DEFAULT_IMG",
+                            image: img,
+                            video: ""
+                        },
+                    ]
+                } as Blog;
+            }
 
         } else {
 
