@@ -361,10 +361,11 @@ export const blogRoutes = (app: express.Router) => {
                     const blog_response = await simlpeSearch(merchant_uuid, "blogs", "collection", collection_type);
                     
                     if (blog_response.status < 300 && blog_response.data.list) {
-                        const db_blogs = blog_response.data.list;
+                        const db_blogs = blog_response.data.list as FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>;
 
+                        // let last_updated_at = 0;
                         if (db_blogs.size > 0) {
-                            db_blogs.forEach(b => {
+                            db_blogs.forEach( (b: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>)=> {
                                 if (b.exists) {
                                     blogs.push(b.data() as Blog)
                                 }
@@ -387,7 +388,7 @@ export const blogRoutes = (app: express.Router) => {
             text: text, 
             result: {
                 size: size,
-                blogs: blogs ? blogs : []
+                blogs: blogs ? blogs.sort((a,b) => a.updated_at._seconds - b.updated_at._seconds) : []
             }
         })
 

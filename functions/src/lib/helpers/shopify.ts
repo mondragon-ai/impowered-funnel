@@ -279,14 +279,20 @@ export async function fetchOrders(order_number: string) {
   if (order_number && order_number !== "") { 
     try {
       // If email is with an existing user, then search the email 
-      const response:Response = await shopifyRequest(
-        `orders.json?name=${order_number}&status=any`, 
+      // const response:Response = await shopifyRequest(
+      //   `orders.json?name=${order_number}&status=any`, 
+      //   "GET"
+      // );
+
+      const response: Response = await shopifyRequest(
+        `orders/${order_number}.json?fields=id,line_items,name,total_price`,
         "GET"
-      );
+      )
 
       const order = await response.json()
 
       console.log(" ====> [SHOPIFY] - Documents Fetched");
+      console.log(order);
       return order;
       
     } catch (error) {
@@ -295,6 +301,39 @@ export async function fetchOrders(order_number: string) {
   } 
   return undefined;
 };
+
+
+/**
+ * Helper Fn - Create product in shopify (likely for POD products)
+ * @param product - Product
+ * @returns - Product || undefined
+ */
+export async function createProduct(product: any) {
+
+  // If order Number exists
+  try {
+
+    const response: Response = await shopifyRequest(
+      `products.json`,
+      "POST",
+      product
+    )
+
+    const order = await response.json()
+
+    console.log(" ====> [SHOPIFY] - Documents Fetched");
+    console.log(order);
+    return order;
+    
+  } catch (error) {
+    return undefined;
+  }
+};
+
+
+
+
+
 
 
 

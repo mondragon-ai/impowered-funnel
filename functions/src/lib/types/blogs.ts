@@ -22,6 +22,6 @@ export type Blog = {
             [key: string]: any
         }[],
     default_media_url: string,
-    updated_at: FirebaseFirestore.Timestamp,
-    created_at: FirebaseFirestore.Timestamp,
+    updated_at: FirebaseFirestore.Timestamp | { _seconds:number } | any,
+    created_at?: FirebaseFirestore.Timestamp | { _seconds:number } | any,
 }

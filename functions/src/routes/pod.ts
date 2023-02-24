@@ -2,14 +2,18 @@ import * as express from "express";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as sharp from "sharp";
-import { createDocument, getCollections, getDocument, simlpeSearch } from "../lib/helpers/firestore";
+import * as crypto from "crypto";
+import { createDocument, getCollections, getDocument, simlpeSearch, updateDocument } from "../lib/helpers/firestore";
 import { validateKey } from "./auth";
-import { fetchOrders } from "../lib/helpers/shopify";
+import { createProduct, fetchOrders } from "../lib/helpers/shopify";
 // import { storage } from "../firebase";
 import fetch from "node-fetch";
 import { divinciRequests, shineOnAPIRequests } from "../lib/helpers/requests";
+import { createVariantsFromOptions } from "../lib/helpers/products/variants";
+import { Product } from "../lib/types/products";
 
 type Design = {
+    id: string,
     merchant_uuid: string,
     url: string,
     sku: string,
@@ -17,8 +21,28 @@ type Design = {
     meta: {}[]
 }
 
+type DesignProduct = {
+    merchant_uuid: string,
+    id?: string,
+    sku?: string,
+    title: string,
+    large_asset_url: string,
+    small_asset_url: string,
+    options: {
+        options1: [],
+        options2: [],
+        options3: []
+    }
+    option1: string,
+    option2: string,
+    option3: string,
+    meta: {}[],
+    external?: string
+}
+
+
 type ShopifyOrder = {	
-    "orders": {
+    "order": {
         "id": number,
         "name": string,
         "total_price": string,
@@ -73,14 +97,15 @@ type ShopifyOrder = {
             },
             "variant_id": number,
         },]
-    }[]
+    }
 }
 export const podRoutes = (app: express.Router) => {
     app.post("/pod/designs/upload", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ====> [POD ROUTE] - Started Design Upload ✅");
         let status = 200,
             text = "[SUCCESS]: Design successfully uploaded 👽",
-            ok = true;
+            ok = true,
+            result = "";
 
         let {
             sku,
@@ -95,20 +120,290 @@ export const podRoutes = (app: express.Router) => {
             sku,
             url,
             title,
+            large_asset_url: url,
+            small_asset_url: url,
             meta: meta ? meta : [],
             updated_at: admin.firestore.Timestamp.now(),
             created_at: admin.firestore.Timestamp.now(),
         }
 
         try {
-            // create document
-            await createDocument(merchant_uuid, "designs", "des_", design_data);
-
+            if (sku !== "" && url !== ""){
+                // create document
+                const response = await createDocument(merchant_uuid, "designs", "des_", design_data);
+                if (response.status < 300 && response.data.id) {
+                    result = response.data.id;
+                }
+            }
         } catch (e) {
             functions.logger.error(text)
             status = 200;
             text = " 🚨 [ERROR]: Design could not be uploaded";
             ok = true;
+        }
+        
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: result
+        })
+    });
+
+    app.post("/pod/product/create", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ✅ [POD_ROUTE] - Started To Create Product Route");
+        let status = 200,
+            text = " 🎉 [SUCCESS]: Product succesfully created 👽 ",
+            ok = true;
+
+        let {
+            sku,
+            id,
+            merchant_uuid,
+            options,
+            option1,
+            option2,
+            option3,
+            large_asset_url,
+            external
+        } = req.body as DesignProduct; 
+
+        let designs = [] as DesignProduct[]
+
+        if (sku !== "" && id == "") {
+            try {
+                const response = await simlpeSearch(merchant_uuid, "designs", "sku", sku);
+
+                if (response.status < 300 && response?.data?.list) {
+                    response.data.list?.forEach(design => {
+                        if (design.exists) {
+                            const d = design.data() as DesignProduct;
+                            designs.push(d);
+                        }
+                    })
+                }
+            } catch (e) {
+                functions.logger.error(text)
+                status = 422;
+                text = " 🚨 [ERROR]: Could not fetch design with SKU.";
+                ok = true;
+            }
+        }
+
+
+        if (id && id !== "" && sku == "") {
+            try {
+                const response = await getDocument(merchant_uuid, "designs", id);
+    
+                if (response.status < 300 && response.data) {
+                    designs.push(response.data as DesignProduct);
+                }
+            } catch (e) {
+                functions.logger.error(text)
+                status = 422;
+                text = " 🚨 [ERROR]: Could not fetch design with ID!.";
+                ok = true;
+            }
+        }
+
+        let product_data: Product = {} as Product;
+
+        if (designs.length > 0 && options) {
+
+            // create paload
+            product_data = {
+                id: "" + crypto.randomBytes(5).toString("hex"),
+                high_risk: false,
+                title: designs[0].title,
+                description: "",
+                sku: designs[0].sku,
+                price: 1075,
+                status: true,
+                sell_overstock: true,
+                is_digital: false,
+                requires_shipping: true,
+                compare_at_price: 0,
+                handle: designs[0].title.toLocaleLowerCase().replace(" ", "-"),
+                weight: 0.06,
+                quantity: 100,
+                tags: [],
+                collections: ["POD"],
+                option1: option1 ? option1 : '',
+                updated_at: admin.firestore.Timestamp.now(),
+                created_at: admin.firestore.Timestamp.now(),
+                option2: option2 ? option2 : '',
+                option3: option3 ? option3 : "",
+                variants: [],
+                options: options,
+                videos: [],
+                images: [],
+                external_id: "",
+                external_type: ""
+            };
+    
+
+            // merchant_uuid,
+            // options,
+            // large_asset_url,
+            const variants = createVariantsFromOptions(product_data, options.options1, options.options2, options.options3);
+
+            if (variants && variants.length > 0) {
+                product_data = {
+                    ...product_data,
+                    variants: variants,
+                };
+            }
+        }
+
+        let product_id = "";
+
+        try {
+
+            const response = await createDocument(merchant_uuid, "products", "pro_", product_data);
+
+            if (response.status < 300 && response.data.id) {
+                product_id = response.data.id
+            }
+            
+        } catch (error) {
+            functions.logger.error(text)
+            status = 400;
+            text = " 🚨 [ERROR]: Could not create product.";
+            ok = true;
+        }
+
+
+        try {
+
+            await updateDocument(merchant_uuid, "designs", designs[0].id as string, {
+                ...designs[0],
+                large_asset_url: large_asset_url ? large_asset_url : designs[0].small_asset_url,
+                option1: option1 ? option1 : "",
+                option2: option2 ? option2 : "",
+                option3: option3 ? option3 : "",
+                options: options ? options : [],
+                meta: [
+                    ...designs[0].meta,
+                    {
+                        product_id: product_id
+                    }
+                ]
+            } as DesignProduct);
+
+        } catch (error) {
+            functions.logger.error(text)
+            status = 400;
+            text = " 🚨 [ERROR]: Could not update design.";
+            ok = true;
+        }
+
+        if (external && external == "SHOPIFY") {
+            try {
+
+                let variants: {
+                    option1: string;
+                    option2: string;
+                    option3: string;
+                    price: number;
+                    sku: string;
+                    weight: number,
+                    weight_unit: "lb",
+                    requires_shipping: boolean
+                }[] = [];
+
+                product_data.variants?.forEach((el) => {
+                    variants.push({
+                        option1: el.options1 ? el.options1 : "",
+                        option2: el.options2 ? el.options2 : "",
+                        option3: el.options3 ? el.options3 : "",
+                        price: el.price ? (el.price / 100) : 0,
+                        sku: el.sku ? el.sku : "",
+                        weight: product_data.weight ? product_data.weight : 0,
+                        weight_unit: "lb",
+                        requires_shipping: true,
+                    })
+                });
+                let productData = {
+                    product: {
+                        title: product_data.title ? product_data.title : "",
+                        body_html: '',
+                        vendor: 'BIGLY',
+                        product_type: '',
+                        tags: "POD",
+                        handle: product_data.handle ? product_data.handle : "",
+                        status: "active",
+                        published_scope: "global",
+                        images:[{
+                            src: designs[0].small_asset_url ? designs[0].small_asset_url : ""
+                        }],
+                        options: [
+                            {
+                                name: option1 ? option1 : "",
+                                values: options.options1 ? options.options1 : [],
+                            },
+                        ],
+                        variants: variants,
+                    },
+                };
+
+                if (option1 !== "" &&  options.options1  &&  options.options1.length > 0) {
+                    productData = {
+                        ...productData,
+                        product: {
+                            ...productData.product,
+                            options: [
+                                {
+                                    name: option1 ? option1 : "",
+                                    values: options.options1 ? options.options1 : [],
+                                },
+                            ],
+                        },
+                    }
+                }
+
+
+                if (option2 !== "" &&  options.options2  &&  options.options2.length > 0) {
+                    productData = {
+                        ...productData,
+                        product: {
+                            ...productData.product,
+                            options: [
+                                ...productData.product.options,
+                                {
+                                    name: option2 ,
+                                    values: options.options2
+                                },
+                            ],
+                        },
+                    }
+                }
+
+
+                if (option3 !== "" &&  options.options3  &&  options.options3.length > 0) {
+                    productData = {
+                        ...productData,
+                        product: {
+                            ...productData.product,
+                            options: [
+                                ...productData.product.options,
+                                {
+                                    name: option3 ,
+                                    values: options.options3
+                                },
+                            ],
+                        },
+                    }
+                }
+
+                const response = await createProduct(productData);
+                if (response) {
+                    text = text + " [SHOPIFY] - Created Product 👍🏻"
+                };
+            } catch (e) {
+                functions.logger.error(text)
+                status = 400;
+                text = " 🚨 [ERROR]: Could not creaet shopify product.";
+                ok = true;
+            }
         }
         
         res.status(status).json({
@@ -189,20 +484,43 @@ export const podRoutes = (app: express.Router) => {
         let {
             sku,
             order_number,
-            merchant_uuid,
         } = req.body as {
-            merchant_uuid: string,
             sku: string,
             order_number: string
         }; 
+
+        const merchant_uuid = "50rAgweT9PoQKs5u5o7t";
 
         let designs: Design[] = [] as Design[];
 
         let order = {} as ShopifyOrder
 
         try {
+            functions.logger.debug(" ====> [SKU] - Searching by SKU");
+            // Search & fetch design document by sku
+            const design_res = await getCollections(merchant_uuid, "designs");
+
+            console.log(design_res)
+            if (design_res.status < 300 && design_res?.data?.collection) {
+                design_res?.data?.collection?.forEach(d => {
+                    designs = [
+                        ...designs,
+                        d
+                    ]
+                })
+            }
+
+        } catch (e) {
+            functions.logger.error(text)
+            status = 400;
+            ok = false;
+            text = " 🚨 [ERROR]: Design could not be fetched";
+        }
+
+        try {
 
             if (sku && sku !== "") {
+                designs = [];
                 functions.logger.debug(" ====> [SKU] - Searching by SKU");
                 // Search & fetch design document by sku
                 const design_res = await simlpeSearch(merchant_uuid, "designs", "sku", sku);
@@ -246,18 +564,17 @@ export const podRoutes = (app: express.Router) => {
         if (order_number && order_number !== "" && order) {
             functions.logger.debug(" ====> [SHOPIFY] - Fetched Order");
 
-            order.orders[0].line_items.forEach(li => {
+            order.order.line_items.forEach(li => {
                 sku_list = [
                     ...sku_list,
                     li.sku
                 ]
-            })
+            });
         }
         functions.logger.debug(" ====> [SKUS] - Extracted");
-        designs = [];
 
 
-        const designs_new = await searchArray(sku_list, merchant_uuid) as Design[];
+        const designs_new = await searchArray(sku_list, designs) as Design[];
 
         functions.logger.debug(" - [DESIGN NEW]");
         functions.logger.debug(designs_new);
@@ -756,36 +1073,42 @@ export const uploadImageToStorage = (buffer: Buffer) => {
 
 const searchArray = async (
     sku_list: string[],
-    merchant_uuid: string
+    designs: Design[],
 ) => {
-    let colleciton: any[] = [];
 
+    console.log(designs);
+    let colleciton: any[] = [];
     return new Promise((resolve) => {
-        let designs: any[] = [];
+        // let designs: any[] = [];
         sku_list.forEach(async (s, i) => {
-            const design_res = await simlpeSearch(merchant_uuid, "designs", "sku", s);
+            designs.forEach((m) => {
+                if (s.includes(m.sku)) {
+                    functions.logger.debug(" [DESIGN] - Found 🔎");
+                    colleciton.push(m)
+                }
+            });
+            // const design_res = await simlpeSearch(merchant_uuid, "designs", "sku", s);
                                 
-            if (design_res.status < 300 && design_res.data.list) {
-                functions.logger.debug(" [DESIGN] - Found 🔎");
-                functions.logger.debug(" [DESIGN] - " + i + " " + (sku_list.length - 1));
-                design_res.data.list?.forEach((d) => {
-                    const data = d.data() as Design;
-                    colleciton = [
-                        ...colleciton,
-                        data
-                    ]
-                });
-                designs = [
-                    colleciton[0]
-                ];
-            } else if (i == (sku_list.length - 1)) {
-                functions.logger.debug(" [DESIGN] - " + i + " " + (sku_list.length - 1));
-            }
+            // if (design_res.status < 300 && design_res.data.list) {
+            //     functions.logger.debug(" [DESIGN] - Found 🔎");
+            //     functions.logger.debug(" [DESIGN] - " + i + " " + (sku_list.length - 1));
+            //     designs.forEach((d) => {
+            //         const data = d.data() as Design;
+            //         colleciton = [
+            //             ...colleciton,
+            //             data
+            //         ]
+            //     });
+            //     designs = [
+            //         colleciton[0]
+            //     ];
+            // } else if (i == (sku_list.length - 1)) {
+            //     functions.logger.debug(" [DESIGN] - " + i + " " + (sku_list.length - 1));
+            // }
         });
-        resolve(designs);
+        return resolve(colleciton);
     });
 };
-
 
 export const getDesignsFromOrder = async (
     sku_list: string[],
