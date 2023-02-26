@@ -211,6 +211,7 @@ export const podRoutes = (app: express.Router) => {
 
             // create paload
             product_data = {
+                merchant_uuid: merchant_uuid,
                 id: "" + crypto.randomBytes(5).toString("hex"),
                 high_risk: false,
                 title: designs[0].title,
@@ -331,7 +332,8 @@ export const podRoutes = (app: express.Router) => {
                         tags: "POD",
                         handle: product_data.handle ? product_data.handle : "",
                         status: "active",
-                        published_scope: "global",
+                        published_scope: "global", 
+                        image: {},
                         images:[{
                             src: designs[0].small_asset_url ? designs[0].small_asset_url : ""
                         }],

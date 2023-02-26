@@ -2,7 +2,7 @@ import * as express from "express";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 // import * as sharp from "sharp";
-import { complexSearch, createDocument, getCollections, getDocument, getPaginatedCollections, simlpeSearch, updateDocument} from "../lib/helpers/firestore"; //, getCollections, getDocument, simlpeSearch
+import { complexSearch, createDocument, deleteDocument, getCollections, getDocument, getPaginatedCollections, simlpeSearch, updateDocument} from "../lib/helpers/firestore"; //, getCollections, getDocument, simlpeSearch
 import { validateKey } from "./auth";
 import { divinciRequests } from "../lib/helpers/requests";
 import { Blog } from "../lib/types/blogs";
@@ -53,6 +53,11 @@ type BlogGenerate = {
 type BlogCollectionFetch = {
     merchant_uuid: string,
     collection_type: string
+}
+
+type BlogDelete = {
+    merchant_uuid: string,
+    blo_uuid: string
 }
 
 type BlogFetch = {
@@ -163,6 +168,7 @@ export const blogRoutes = (app: express.Router) => {
 
         blog = {
             ...blog,
+            merchant_uuid: merchant_uuid,
             updated_at: admin.firestore.Timestamp.now(),
             created_at: admin.firestore.Timestamp.now(),
             status: blog.title !== "" ? true : false,
@@ -287,6 +293,7 @@ export const blogRoutes = (app: express.Router) => {
 
         blog = {
             ...blog,
+            merchant_uuid: merchant_uuid,
             updated_at: admin.firestore.Timestamp.now(),
             default_media_url: default_media_url,
             status: blog.title !== "" ? true : false
@@ -333,6 +340,44 @@ export const blogRoutes = (app: express.Router) => {
             result: {
                 size: size,
                 blogs: blogs ? blogs : []
+            }
+        })
+
+    });
+
+    app.post("/blogs/delete", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ✅ [BLOG ROUTE] - Ready to fetch colleciton");
+        let status = 200,
+            text = " 🎉 [SUCCESS]: Blogs Successfully Deleted",
+            ok = true;
+
+        let {
+            blo_uuid,
+            merchant_uuid,
+        } = req.body as BlogDelete; 
+
+        let blogs: Blog[] = [];
+        let size = 0;
+
+        try {
+
+            if (blo_uuid !== "") {
+                await deleteDocument(merchant_uuid, "blogs", blo_uuid);
+            }   
+            
+        } catch (e) {
+            ok = false;
+            status = 400,
+            text = " 🚨 [ERROR]: Could not fetch collection",
+            functions.logger.error(text);
+        }
+
+        res.status(status).json({
+            ok: ok,
+            text: text, 
+            result: {
+                size: size,
+                blogs: blogs ? blogs.sort((a,b) => b.updated_at._seconds - a.updated_at._seconds) : []
             }
         })
 
@@ -388,7 +433,7 @@ export const blogRoutes = (app: express.Router) => {
             text: text, 
             result: {
                 size: size,
-                blogs: blogs ? blogs.sort((a,b) => a.updated_at._seconds - b.updated_at._seconds) : []
+                blogs: blogs ? blogs.sort((a,b) => b.updated_at._seconds - a.updated_at._seconds) : []
             }
         })
 

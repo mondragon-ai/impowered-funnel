@@ -1,5 +1,6 @@
 export type Blog = {
     id: string,
+    merchant_uuid: string,
     title: string,
     sub_title: string,
     status: boolean,

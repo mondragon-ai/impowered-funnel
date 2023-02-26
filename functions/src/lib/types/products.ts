@@ -1,6 +1,7 @@
 import { Address } from "./addresses";
 
 export type Product = {
+    merchant_uuid: string,
     high_risk: boolean
     title: string;
     handle: string;
@@ -15,6 +16,9 @@ export type Product = {
     sell_overstock?: boolean;
     requires_shipping?: boolean;
     tags: string[],
+    image?: {
+        src: string
+    }
     collections: string[],
     option1?: string,
     option2?: string,
@@ -36,12 +40,84 @@ export type Product = {
     }[],
     variants?: Variant[],
     sku?: string,
-    external_id: string,
+    external_id: string | number,
     external_type: string,
     updated_at: FirebaseFirestore.Timestamp;
     created_at: FirebaseFirestore.Timestamp;
 }
 
+export type ShopifyProduct = {
+    high_risk: boolean
+    title: string;
+    handle: string;
+    price: number;
+    description?: string;
+    compare_at_price?: number;
+    quantity: number;
+    weight?: number;
+    status: boolean;
+    id: string;
+    is_digital?: boolean;
+    sell_overstock?: boolean;
+    requires_shipping?: boolean;
+    tags: string[],
+    image: {
+        src: string
+    }
+    body_html?: string,
+    collections: string[],
+    "options": {
+        "id": number,
+        "product_id": number,
+        "name": string,
+        "position": number,
+        "values": string[]
+    }[]
+    videos: {
+        id: string,
+        url: string,
+        type: "YOUTUBE" | "VIMEO"
+    }[],
+    images: {
+        id: string,
+        url: string,
+        alt: string
+    }[],
+    variants?: 
+    {
+        "id": number,
+        "product_id": number,
+        "title": string,
+        "price": string,
+        "sku": string,
+        "position": number,
+        "inventory_policy": string,
+        "compare_at_price": string,
+        "fulfillment_service": string,
+        "inventory_management": string,
+        "option1": string,
+        "option2": string,
+        "option3": string |null,
+        "created_at": string,
+        "updated_at": string,
+        "taxable": boolean,
+        "barcode": string,
+        "grams": number,
+        "image_id": string |  null,
+        "weight": number,
+        "weight_unit": string,
+        "inventory_item_id": number,
+        "inventory_quantity": number,
+        "old_inventory_quantity": number,
+        "requires_shipping": boolean,
+        "admin_graphql_api_id": string
+    }[],
+    sku?: string,
+    external_id: string | number,
+    external_type: string,
+    updated_at: FirebaseFirestore.Timestamp;
+    created_at: FirebaseFirestore.Timestamp;
+}
 
 
 export interface Variant 
@@ -62,7 +138,7 @@ export interface Variant
     status?: boolean,
     image_url?: string,
     inventory?: number,
-    external_id: string,
+    external_id: string | number,
     external_type: string,
     updated_at: FirebaseFirestore.Timestamp;
     created_at: FirebaseFirestore.Timestamp;

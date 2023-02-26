@@ -77,5 +77,45 @@ export const dbManagerRoutes = (app: expres.Router) => {
             }
         })
     });
+    app.post("/algolia/collection/sync_server", async (req: expres.Request, res: expres.Response) => {
+        functions.logger.debug(" ✅ [ALGOLIA] -> Ready to sync primary cache DB to algolia");
+        let status = 200,
+            text = " 🎉 [SUCCESS]: collection successfully synced",
+            result: {id?: string, objectID?: string}[] | null = null,
+            size = 0,
+            ok = true;
+
+        const update_object:any = req.body.update_object;
+
+        // Push to Algolia index
+        try {
+            let push_data: {}[] = [];
+            // If data is returned successfully sync
+            if (update_object !== null) {
+                push_data.push(update_object)
+            }
+
+            if (push_data.length > 0) {
+                functions.logger.debug(" => Data ready to sync to algolia");
+                await product_index.saveObjects(push_data);
+
+            }
+
+        } catch (e) {
+            text = " 🚨 [ERROR]: Likely a problem uploading / syncing primary db with angolia. Check logs";
+            status = 500;
+            ok = false;
+            functions.logger.error(text);
+        }
+
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: {
+                size: size,
+                collection: result
+            }
+        })
+    });
     
 }
