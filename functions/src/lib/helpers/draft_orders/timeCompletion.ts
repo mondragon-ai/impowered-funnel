@@ -7,7 +7,7 @@ import * as Tasks from "@google-cloud/tasks";
  *  Send blog data  to algolia for searchablity 
  *  @param dra_uuid
  */
- export const updateAlgolia = async (upload_object: any) => {
+ export const updateAlgolia = async (upload_object: any, collection: string) => {
   // ? Toggle log 
   functions.logger.info(" ⏭️ [QUEUE] - Adding Task to Queue");
   functions.logger.info(upload_object);
@@ -30,8 +30,9 @@ import * as Tasks from "@google-cloud/tasks";
       },
       httpMethod: 'POST',
       url,
-      body:Buffer.from(JSON.stringify({
-        upload_object: upload_object
+      body: Buffer.from(JSON.stringify({
+        upload_object: upload_object,
+        collection: collection,
       })).toString("base64")
     },
     scheduleTime: {

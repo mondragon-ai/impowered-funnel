@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions";
-import { updateAlgolia } from "../lib/helpers/draft_orders/timeCompletion";
 import { Product } from "../lib/types/products";
+import { updateAlgoliaFn } from "../routes/db";
 
 export const productsCreated = functions.firestore
 .document("/merchants/{merchantID}/products/{productsID}")
@@ -10,8 +10,25 @@ export const productsCreated = functions.firestore
     let product: Product = snap.exists ? snap.data() as Product : {} as Product;
 
     if (product !== null) {
-        functions.logger.info(" ⏭️ [QUEUE] - Push Task to Queue");
-        updateAlgolia(product);
+        functions.logger.info(" ⏭️ [START] - Push Algolia");
+        await updateAlgoliaFn(product, "products");
+
+    } else {
+        functions.logger.error(" 🚨 [ERROR]: Internal error - customer doesn't exist");
+        
+    }
+});
+
+export const productsUpdated = functions.firestore
+.document("/merchants/{merchantID}/products/{productsID}")
+.onUpdate(async (change, context) => {
+
+    functions.logger.info(" ⏱️ [CRON_JOB]: Blog Created");
+    let product: Product = change.after.exists ? change.after.data() as Product : {} as Product;
+
+    if (product !== null) {
+        functions.logger.info(" ⏭️ [START] - Push Algolia");
+        await updateAlgoliaFn(product, "products");
 
     } else {
         functions.logger.error(" 🚨 [ERROR]: Internal error - customer doesn't exist");

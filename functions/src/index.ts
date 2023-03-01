@@ -12,8 +12,8 @@ const settings: functions.RuntimeOptions = {
 export const funnel = functions.runWith(settings).https.onRequest(express);
 
 export { orderCreated } from "./webhooks/orders";
-export { blogsCreated} from "./webhooks/blogs";
-export { productsCreated } from "./webhooks/products";
+export { blogsCreated, blogsUpdated } from "./webhooks/blogs";
+export { productsCreated, productsUpdated } from "./webhooks/products";
 export { fulfillmentCreated } from "./webhooks/fulfillment";
 export { dailyCronJob } from "./cronjobs/daily";
 export { hourlyCronJob } from "./cronjobs/hourly";

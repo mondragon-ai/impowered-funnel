@@ -171,7 +171,7 @@ export const blogRoutes = (app: express.Router) => {
             merchant_uuid: merchant_uuid,
             updated_at: admin.firestore.Timestamp.now(),
             created_at: admin.firestore.Timestamp.now(),
-            status: blog.title !== "" ? true : false,
+            status: false,
         } as Blog;
 
         try {
@@ -632,22 +632,22 @@ export const blogRoutes = (app: express.Router) => {
 
         try {
 
-            if (merchant_uuid !== "" && original_text !== "") {
-                const gpt_response = await divinciRequests("/completions", "POST", {
-                    model: "text-davinci-003",
-                    prompt: "In 10 words or less, create a short title for the following news article: \n\n" + new_text !== "" ? new_text : original_text,
-                    temperature: 0.9,
-                    max_tokens: 100,
-                }); 
+            // if (merchant_uuid !== "" && original_text !== "") {
+            //     const gpt_response = await divinciRequests("/completions", "POST", {
+            //         model: "text-davinci-003",
+            //         prompt: "In 10 words or less, create a short title for the following news article: \n\n" + new_text !== "" ? new_text : original_text,
+            //         temperature: 0.9,
+            //         max_tokens: 100,
+            //     }); 
 
-                if (gpt_response.status < 300 && gpt_response.data) {
-                    head_line = gpt_response?.data?.choices[0]?.text;
-                    status = 201;
-                    text = " 🎉 [SUCCESS]: New Blog Article generated. ";
-                    ok = true;
-                }
+            //     if (gpt_response.status < 300 && gpt_response.data) {
+            //         head_line = gpt_response?.data?.choices[0]?.text;
+            //         status = 201;
+            //         text = " 🎉 [SUCCESS]: New Blog Article generated. ";
+            //         ok = true;
+            //     }
                
-            }   
+            // }   
             
         } catch (e) {
             functions.logger.error(text + " Likley a DaVinci Issue. Contact customer support.");
@@ -667,36 +667,36 @@ export const blogRoutes = (app: express.Router) => {
 
         try {
 
-            if (merchant_uuid !== "" && original_text !== "") {
-                const gpt_response = await divinciRequests("/completions", "POST", {
-                    model: "text-davinci-003",
-                    prompt: "In 50 words or less, create a short enticing summary for the following news article: \n\n" + new_text ? new_text : original_text,
-                    temperature: 0.9,
-                    max_tokens: 100,
-                }); 
+            // if (merchant_uuid !== "" && original_text !== "") {
+            //     const gpt_response = await divinciRequests("/completions", "POST", {
+            //         model: "text-davinci-003",
+            //         prompt: "In 50 words or less, create a short enticing summary for the following news article: \n\n" + new_text ? new_text : original_text,
+            //         temperature: 0.9,
+            //         max_tokens: 100,
+            //     }); 
 
-                if (gpt_response.status < 300 && gpt_response.data) {
-                    subheadline = gpt_response?.data?.choices[0]?.text;
-                    status = 201;
-                    text = " 🎉 [SUCCESS]: New Blog Article generated. ";
-                    ok = true;
-                }
+            //     if (gpt_response.status < 300 && gpt_response.data) {
+            //         subheadline = gpt_response?.data?.choices[0]?.text;
+            //         status = 201;
+            //         text = " 🎉 [SUCCESS]: New Blog Article generated. ";
+            //         ok = true;
+            //     }
                
-            }   
+            // }   
             
         } catch (e) {
             functions.logger.error(text + " Likley a DaVinci Issue. Contact customer support.");
         }
 
         let blog = {
-            title: head_line !== "" && head_line !== " " ? head_line : "",
-            sub_title: subheadline  !== ""? subheadline : "",
+            title: head_line,
+            sub_title: subheadline,
             original_text: url ?  url : "",
             new_text: new_text ?  new_text : "",
             collection: collection_type,
             sections: [] as any,
             style: "OBJECTIVE",
-            status: head_line !== "" ? true : false,
+            status: false,
             author: getRandomName(names),
             published_date: new Date().toLocaleDateString(),
             updated_at: admin.firestore.Timestamp.now(),
