@@ -92,7 +92,8 @@ export const customerRoute = (
             STRIPE_PI_UID?: string, 
             STRIPE_CLIENT_ID?: string,
             shipping?: Address[],
-            payment_exists?: boolean
+            payment_exists?: boolean,
+            SQUARE_UUID?: string
         } = {};
 
         // Customer Data
@@ -100,11 +101,10 @@ export const customerRoute = (
 
         // TODO: Sanatize scopes && data
         try {
-
             // Create customer
             const response = await createCustomerPayment(merchant_uuid, funnel_uuid, customer, high_risk);
             functions.logger.debug(" ❶ [RESPONSE] - Create Payment ");
-            functions.logger.info(response?.customers)
+            functions.logger.info(response?.customers);
 
             if (response?.status < 300 && response?.customers) {
                 result = {
@@ -112,7 +112,7 @@ export const customerRoute = (
                     id: response?.customers?.cus_uuid ? response.customers.cus_uuid : response.customers.id ? response.customers.id : "",
                     STRIPE_UUID: response?.customers?.stripe?.UUID ? response?.customers?.stripe?.UUID  : "",
                     STRIPE_CLIENT_ID: response?.customers?.stripe?.CLIENT_ID ? response?.customers?.stripe?.CLIENT_ID : "",
-                    shipping: response?.customers ? response?.customers?.addresses : [],
+                    SQUARE_UUID: response?.customers?.square?.UUID ? response?.customers?.square?.UUID  : "",
                     payment_exists: response?.customers?.stripe?.PM ? false : true
                 };
 
@@ -122,7 +122,7 @@ export const customerRoute = (
                     merchant_uuid: merchant_uuid,
                     funnel_uuid: funnel_uuid
                 }
-            }
+            };
             
         } catch (e) {
             text = " 🚨 [ERROR]: Likely a problem creating a customer.";

@@ -315,13 +315,25 @@ const klavyio_HEADERS =  new Headers({
     "Content-Type": "application/json",
     'Authorization': 'Klaviyo-API-Key ' + process.env.KLAVYIO_API,
     'revision': '2023-01-24',
-})
+});
 
+// const klavyio_HEADERS_BIGLY =  new Headers({
+//     "Content-Type": "application/json",
+//     'Authorization': 'Klaviyo-API-Key ' + process.env.KLAVYIO_API,
+//     'revision': '2023-01-24',
+// })
+
+const klavyio_HEADERS_HODGE =  new Headers({
+    "Content-Type": "application/json",
+    'Authorization': 'Klaviyo-API-Key ' + process.env.KLAVYIO_API_HODGE,
+    'revision': '2023-01-24',
+});
 
 export const klavyioAPIRequests = async (
     resource: string,
     method: string,
-    data: any
+    data: any,
+    type?: "HODGE" | "BIGLY" | "POPULI" | ""
 ) => {
 
     let text = " - Problem fetching -> " + resource, 
@@ -333,12 +345,12 @@ export const klavyioAPIRequests = async (
        response = await fetch(klavyio_URL + resource, {
             method: method != "" ? method : "GET",
             body: JSON.stringify(data),
-            headers: klavyio_HEADERS
+            headers: type == "HODGE" ? klavyio_HEADERS_HODGE : klavyio_HEADERS 
         })
     } else {
         response = await fetch(klavyio_URL + resource, {
             method: "GET",
-            headers: klavyio_HEADERS
+            headers: type == "HODGE" ? klavyio_HEADERS_HODGE : klavyio_HEADERS
         })
     }
 

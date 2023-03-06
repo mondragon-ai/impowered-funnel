@@ -336,6 +336,37 @@ export async function createProduct(product: any) {
 
 
 
+export const giveGiftCard = async (customerID: string) => {
+
+  functions.logger.log("============================================================================================");
+  functions.logger.log("                        6# SHOPIFY CUSTOMER - Gift Card                                     ");
+  functions.logger.log("============================================================================================");
+  functions.logger.log("DATA --> \n", customerID);
+
+  const response = await shopifyRequest("graphql.json", "POST", {
+    query: "mutation giftCardCreate($input: GiftCardCreateInput!) { giftCardCreate(input: $input) { userErrors { message field } giftCard { id expiresOn note initialValue { amount } customer { id } } giftCardCode } }",
+    variables: {
+      input: {
+        initialValue: "25.00",
+        note: "TEST_GROUP",
+        customerId: `gid://shopify/Customer/${customerID}`
+      }
+    }
+  });
+
+  
+
+
+  const gift_card = await response.json()
+  // console.log("============================================================================================");
+  // console.log("                                      SHOPIFY CUSTOMER                                      ");
+  // console.log("============================================================================================");
+  functions.logger.log("\n\n\n6# SHOPIFY CUSTOMER - Result: ");
+  console.log(gift_card);
+  return gift_card;
+
+}
+
 
 
 // /**

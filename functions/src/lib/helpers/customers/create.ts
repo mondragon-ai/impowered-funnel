@@ -1,5 +1,5 @@
 import { Customer, } from "../../types/customers";
-import { createDocument, simlpeSearch, updateDocument } from "../firestore";
+import { createDocument, createDocumentWthId, simlpeSearch, updateDocument } from "../firestore";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { createSripeClientSecret, createStripeCustomer } from "../stripe";
@@ -14,6 +14,8 @@ export const createCustomerPayment = async (
 ) => {
     let status = 500, text = " 🚨 [ERROR]: Likley internal issue 🤡. ";
 
+    console.log(data)
+
     // logic vars
     let cus_uuid = "";
     let customers: Customer[] = [];
@@ -21,7 +23,7 @@ export const createCustomerPayment = async (
 
     // Check email first if exists else create new 👇🏻👇🏻👇🏻
     try {
-        if ( data.email != "") {
+        if (data.email != "") {
             functions.logger.debug(" ❷ [SEARCHING] -  Checking if Exists with Email");
             // Search the collection for existing email 
             const cusList = await simlpeSearch(merchant_uuid, "customers", "email", data.email);
@@ -72,36 +74,104 @@ export const createCustomerPayment = async (
 
     try {
         if (high_risk) {
-            functions.logger.debug(" ❷ [HIGH_RISK] -  Creating Sqaure && Returning UUID");
-            if (!customers[0].square || cus_uuid === "") {
-
+            functions.logger.debug(" ❷ [HIGH_RISK]- Square Data && Returning UUID");
+            // Stripe customer created 
+            if ((customers.length > 0 && !customers[0].square?.UUID)) {
+                functions.logger.debug(" ❷ [SQUARE] -  Create Square Customer 🕺🏼");
                 const square = await createSquareCustomer({
-                    note: "CUSTOM FUNNEL",
-                    given_name: update_data?.first_name,
-                    family_name: update_data?.first_name,
+                    note: "CUSTOM_FUNNEL",
+                    given_name: update_data?.first_name ?  update_data?.first_name : "",
+                    family_name: update_data?.first_name ? update_data?.first_name : "",
                     email_address: update_data?.email
                 });
                 functions.logger.debug(" ❷ [SQUARE] - Customer Created 👍🏻");
-    
-                // Data to push to the primary DB
-                update_data = {
-                    ...update_data,
-                    square: {
-                        ...(update_data?.square ? update_data?.square : {}),
-                        UUID: square?.customer && square?.customer?.id ? square?.customer.id  : "",
-                        PM: ""
-                    },
+                console.log(square);
+                
+                // OK result & New Document
+                if (square) {
+                    // Data to push to the primary DB
+                    update_data = {
+                        ...update_data,
+                        square: {
+                            ...(update_data?.square ? update_data?.square : {}),
+                            UUID: square?.customer && square?.customer?.id ? square?.customer.id  : "",
+                            PM: ""
+                        },
+                    };
+                    console.log(update_data);
+                    text = " 🎉 [SUCCESS] Square Created";
+                    status = 201;
                 }
-                text = " 🎉 [SUCCESS] Square Created";
-                status = 201;
             } else {
-
+                functions.logger.debug(" ❷ [PRE_FLIGHT] -> ");
+                functions.logger.debug(update_data);
+                functions.logger.debug(" ❷ [SQUARE] -  Square Customer Exists🕺🏼");
+                
+            
+                // OK result & New Document
+                // if (square?.status < 300) {
+                //     // Data to push to the primary DB
+                //     update_data = {
+                //         ...update_data,
+                //         square: {
+                //             ...(update_data?.square ? update_data?.square : {}),
+                //             UUID: square?.customer && square?.customer?.id ? square?.customer.id  : "",
+                //             PM: ""
+                //         },
+                //     };
+                //     text = " 🎉 [SUCCESS] Square Created";
+                //     status = 201;
+                // }
+                // const stripe = await createSripeClientSecret(update_data.stripe?.UUID as string);
+            
+                // functions.logger.debug(" ❷ [STRIPE] - Created Stripe Client Secret 🔑");
+                // functions.logger.debug(stripe);
+                // // OK result & New Document
+                // if (stripe?.status < 300) {
+                //     // Data to push to the primary DB
+                //     update_data = {
+                //         ...update_data,
+                //         stripe: {
+                //             ...update_data.stripe,
+                //             CLIENT_ID: stripe?.data as string, 
+                //         } as any
+                //     }
+                // }
             }
+
+
+
+
+
+
+
+
+            functions.logger.debug(" ❷ [HIGH_RISK] -  Creating Sqaure && Returning UUID");
+            console.log(customers);
+            // console.log(cus_uuid);
+            // const square = await createSquareCustomer({
+            //     note: "CUSTOM FUNNEL",
+            //     given_name: update_data?.first_name ?  update_data?.first_name : "",
+            //     family_name: update_data?.first_name ? update_data?.first_name : "",
+            //     email_address: update_data?.email
+            // });
+            // functions.logger.debug(" ❷ [SQUARE] - Customer Created 👍🏻");
+            // // Data to push to the primary DB
+            // update_data = {
+            //     ...update_data,
+            //     square: {
+            //         ...(update_data?.square ? update_data?.square : {}),
+            //         UUID: square?.customer && square?.customer?.id ? square?.customer.id  : "",
+            //         PM: ""
+            //     },
+            // };
+            // text = " 🎉 [SUCCESS] Square Created";
+            // status = 201;
         } else {
             functions.logger.debug(" ❷ ![HIGH_RISK]- Stripe Data && Returning UUID");
             // Stripe customer created 
             if (customers.length === 0 && cus_uuid === "") {
-                functions.logger.debug(" ❷ [STRIPE] -  Create Stripe Customer 🕺🏼");
+                functions.logger.debug(" ❷ [STRIPE] - Create Stripe Customer 🕺🏼");
                 const stripe = await createStripeCustomer(update_data?.email, update_data?.first_name, update_data?.last_name);
             
                 // OK result & New Document
@@ -165,15 +235,28 @@ export const createCustomerPayment = async (
             status = 201;
         } else {
             functions.logger.debug(" ❷ [CUSTOMER] - Creaete New Customer 🆕");
-            const response = await createDocument(merchant_uuid, "customers", "cus_", update_data);
-            functions.logger.debug(" ❷ [CUSTOMER] - Created Response");
-            functions.logger.debug(response);
-
-            if (response.status < 300 && response.data) {
-                update_data = {
-                    ...update_data,
-                    id: response.data.id
-                };
+            if (update_data.id && update_data.id !== "") {
+                const response = await createDocumentWthId(merchant_uuid, "customers", update_data.id, update_data);
+                functions.logger.debug(" ❷ [CUSTOMER] - Created Response");
+                functions.logger.debug(response);
+    
+                if (response.status < 300 && response.data) {
+                    update_data = {
+                        ...update_data,
+                        id: response.data.id
+                    };
+                }
+            } else {
+                const response = await createDocument(merchant_uuid, "customers", "cus_", update_data);
+                functions.logger.debug(" ❷ [CUSTOMER] - Created Response");
+                functions.logger.debug(response);
+    
+                if (response.status < 300 && response.data) {
+                    update_data = {
+                        ...update_data,
+                        id: response.data.id
+                    };
+                }
             }
         }
 

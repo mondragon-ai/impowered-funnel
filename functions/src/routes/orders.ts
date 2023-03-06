@@ -3,7 +3,8 @@ import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import { completeDraftOrder } from "../lib/helpers/draft_orders/complete";
 import { createDocument, getCollections, getDocument, getPaginatedCollections } from "../lib/helpers/firestore";
-import { Order } from "../lib/types/draft_rders";
+// import { Customer } from "../lib/types/customers";
+import { DraftOrder, Order } from "../lib/types/draft_rders";
 import { validateKey } from "./auth";
 
 export const orderRoutes = (app: express.Router) => {
@@ -119,10 +120,28 @@ export const orderRoutes = (app: express.Router) => {
         functions.logger.debug(merchant_uuid);
         functions.logger.debug(dra_uuid);
         functions.logger.debug(cus_uuid);
+
+        let order: DraftOrder = {} as DraftOrder;
+        if (cus_uuid || cus_uuid === "") {
+            try {
+              // Create Order
+              const repsonse = await getDocument(merchant_uuid, "draft_orders", dra_uuid);
+    
+              if (repsonse.status < 300 && repsonse.data) {
+                order = repsonse.data as DraftOrder;
+              }
+              
+            } catch (e) {
+                text = " 🚨 [ERROR]: Likely a problem completing a order";
+                status = 500;
+                ok = false;
+                functions.logger.error(text);
+            }
+        }
         
         try {
           // Create Order
-          await completeDraftOrder(merchant_uuid, dra_uuid, cus_uuid);
+          await completeDraftOrder(merchant_uuid, dra_uuid, order.customer_id as string);
           
         } catch (e) {
             text = " 🚨 [ERROR]: Likely a problem completing a order";

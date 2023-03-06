@@ -9,6 +9,7 @@ import { Order } from "../lib/types/draft_rders";
 import { FunnelAnalytics, Analytics } from "../lib/types/analytics";
 // import { sendThankYouEmail } from "../lib/helpers/twillio";
 import { klavyioAPIRequests } from "../lib/helpers/requests";
+import { giveGiftCard } from "../lib/helpers/shopify";
 // import { SubscriptionAgreement} from "../lib/types/products";
 // import { Fulfillment } from "../lib/types/fulfillments";
 
@@ -32,7 +33,8 @@ export const orderCreated = functions.firestore
         order_number,
         merchant_uuid,
         addresses,
-        funnel_uuid
+        funnel_uuid,
+        tags
     } = order;
 
     let customer: Customer = {} as Customer;
@@ -163,7 +165,13 @@ export const orderCreated = functions.firestore
     
         if (customer) {    
             const first = customer?.first_name ? customer?.first_name : ""
-            const last = customer?.last_name ? customer?.last_name : ""
+            const last = customer?.last_name ? customer?.last_name : "";
+            const shopify_uuid = customer?.shopify_uuid ? customer?.shopify_uuid : "";
+            
+            if (shopify_uuid !== "" && tags?.includes("CLICK_FUNNEL")) {
+                const response = await giveGiftCard(shopify_uuid)
+                console.log(response);    
+            };
 
             functions.logger.info("❶ [GIFT CARD] - Creating Gift Card 💳");
             await createDocument(merchant_uuid, "gift_cards", "gif_", {
@@ -178,8 +186,8 @@ export const orderCreated = functions.firestore
                     addresses:  addresses && addresses.filter((addy) => {return addy.type == "SHIPPING" || addy.type == "BOTH"}),
                 },
                 notes: "",
-                starting_balance: 4000,
-                current_balance: 4000,
+                starting_balance: 2500,
+                current_balance: 2500,
                 code: "" + crypto?.randomBytes(5).toString("hex")
             });
         }
@@ -262,7 +270,7 @@ export const orderCreated = functions.firestore
                         last_name: (customer.last_name ? customer.last_name : "")
                     }
                 }
-            });
+            }, "HODGE");
 
             console.log(klav_resposnse);
 
@@ -276,7 +284,7 @@ export const orderCreated = functions.firestore
                             id: klav_resposnse.data.id
                         }
                     ]
-                });
+                }, "HODGE");
     
                 console.log(final);
            }
@@ -291,7 +299,7 @@ export const orderCreated = functions.firestore
                             id: klav_resposnse.data.errors[0].meta.duplicate_profile_id
                         }
                     ]
-                });
+                }, "HODGE");
     
                 console.log(final);
             }

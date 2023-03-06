@@ -4,8 +4,46 @@ import * as admin from "firebase-admin";
 import { createDocument, getCollections, getDocument, getPaginatedCollections } from "../lib/helpers/firestore";
 import { validateKey } from "./auth";
 import { SubscriptionAgreement } from "../lib/types/products";
+import { giveGiftCard } from "../lib/helpers/shopify";
 
 export const giftCardRoutes = (app: express.Router) => {
+    app.post("/gift_cards/test", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ====> Ready to create gift card");
+        let status = 200,
+            text = "SUCCESS: Gift Card document succesffully created 👽",
+            result: any = null,
+            ok = true;
+
+        // Merchant uuid 
+        // const merchant_uuid:string = req.body.merchant_uuid;
+        const shopify_uuid:string = req.body.shopify_uuid;
+
+
+        // Create gift card document 
+        try {
+            const response = await giveGiftCard(shopify_uuid)
+
+
+            if (response) {
+                result = response;
+            }
+
+            functions.logger.debug(" => Document created");
+            
+        } catch (e) {
+            text = "ERROR: Likely couldnt create a gift card document";
+            status = 500;
+            ok = false;
+            functions.logger.error(text);
+            throw new Error(text);
+        }   
+        
+        res.status(status).json({
+            ok,
+            text,
+            result
+        })
+    });
     app.post("/gift_cards/create", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ====> Ready to create gift card");
         let status = 200,

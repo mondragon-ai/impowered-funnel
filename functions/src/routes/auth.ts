@@ -131,7 +131,7 @@ export const validateKey = async (req: express.Request, res: express.Response, n
             // Validate Usage w/ max of 999 / min
             if (Math.floor((new Date().getTime())) < session_range) {
 
-                if (account.usage.count >= 5) {
+                if (account.usage.count >= 999) {
                     functions.logger.debug(" ❶ rate limit hit");
                     text = text + " - rate limit hit.";
                     VALID = false;

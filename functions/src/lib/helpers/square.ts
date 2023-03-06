@@ -9,12 +9,13 @@ import { LineItem } from "../types/draft_rders";
 // import { Merchant } from "../types/merchants";
 
 export const createSquareCustomer = async (
-    new_customer: any
+  new_customer: any
 ) => {
 
-    let data = await squareRequest("/customers", "POST", new_customer);
+  console.log(new_customer);
+  let data = await squareRequest("/customers", "POST", new_customer);
 
-    return data?.data ?  data?.data : null
+  return data?.data ?  data?.data : null
 }
 
 
@@ -26,7 +27,9 @@ export const handleSquareCharge = async (
     high_risk: boolean,
     bump: boolean,
     external?: "" | "SHOPIFY" | "BIG_COMMERCE" | "SHINEON" | undefined,
-    draft_order_id?: string
+    draft_order_id?: string,
+    sourceId?: string,
+    cus_UUID?: string,
 ) => {
   
     const {
@@ -43,10 +46,14 @@ export const handleSquareCharge = async (
     functions.logger.info(" ❸ [EMAIL]: " + email);
     console.log(product);
     functions.logger.info(" ❸ [CUS_UUID]: " + id);
+    functions.logger.info(" ❸ [SOURCE_UUID]: " + sourceId);
+    functions.logger.info(" ❸ [SQAURE_UUID]: " + SQAURE_UUID);
   
     if (id == "" || email == "") {
       return ""
     };
+
+    let SQURE_PM = "";
   
     let LOCATION_ID = "";
     let SQR_PI = "";
@@ -65,6 +72,71 @@ export const handleSquareCharge = async (
     // } catch (e) {
     //     functions.logger.error(" ===> 🚨 [ERROR]: " + "Fetching merchant Document");
     // }
+    // const cardReq = {
+    //     idempotency_key: "" + idempotencyKey,
+    //     amount_money: {
+    //       amount: 100,
+    //       currency: "USD"
+    //     },
+    //     source_id: "" + sourceId,
+    //     autocomplete: true,
+    //     customer_id: "N1TH0YGN3HH8GF9BWH7BVXG9CC",
+    //     location_id: "" + locationId,
+    //     reference_id: "123456",
+    //     note: "TEST",
+    //     app_fee_money: {
+    //       amount: 10,
+    //       currency: "USD"
+    //     }
+    //   };
+  
+    async function createPM() {
+      return new Promise( (resolve) => {
+        return setTimeout(async () => {
+  
+          try {
+              const idempotencyKey = crypto.randomBytes(16).toString('hex');
+              const cardReq = {
+                idempotency_key: "" + idempotencyKey,
+                source_id: "" + sourceId ? sourceId : "",
+                card: {
+                  billing_address: {
+                      address_line_1: shipping?.line1 ?  shipping.line1 : "",
+                      address_line_2: shipping?.line2 ?  shipping.line2 : "",
+                      locality: shipping?.city ?  shipping?.city : "",
+                      administrative_district_level_1: shipping?.state ?  shipping?.state : "",
+                      postal_code: shipping?.zip && shipping?.zip !== "" ? shipping?.zip : "10003",
+                      country: shipping?.country ?  shipping?.country : "CA",
+                  },
+                  cardholder_name: (customer.first_name ? customer.first_name : "") + " " + (customer.last_name ? customer.last_name : ""),
+                  customer_id: customer.square?.UUID ? customer.square?.UUID : "",
+                  reference_id: customer.merchant_uuid ? customer.merchant_uuid : ""
+                }
+            };
+            functions.logger.debug(cardReq);
+
+            if (customer.square?.UUID !== "") {
+              functions.logger.info(" ❸ [SQAURE_UUID]: " + customer.square?.UUID );
+              // Store user card POSTing to /cards -> new source_id
+              const {text, status, data} = await squareRequest("/cards", "POST", cardReq);
+
+              // Logging
+              functions.logger.debug(' 🎉 [SUCCESS] => Stored Card Details ', { text, status, data});
+              console.log(data);
+
+              SQURE_PM = data?.card?.id ? data.card.id : ""
+            }
+            
+          } catch (e) {
+              functions.logger.error(" ===> 🚨 [ERROR]: " + " - Charging customer - stripe 227");
+          }
+  
+          return resolve(LOCATION_ID as string);
+        }, 100);
+      });
+    }
+  
+    await createPM()
   
     async function createIntent() {
       return new Promise( (resolve) => {
@@ -72,17 +144,17 @@ export const handleSquareCharge = async (
   
           try {
 
-            if (SQAURE_PM !== "" && SQAURE_UUID !== "") {
+            if (SQAURE_UUID !== "") {
                 const idempotencyKey = crypto.randomBytes(16).toString('hex');
         
-                // * Make the initial Stripe charge based on product price
+                // * Make the initial square charge based on product price
                 const payment_response = await squareRequest("/payments", "POST", {
                     idempotency_key: idempotencyKey,
                     amount_money: {
                         amount: p,
                         currency: "USD"
                     },
-                    source_id: SQAURE_PM,
+                    source_id: (SQAURE_PM ? SQAURE_PM : SQURE_PM ? SQURE_PM : ""),
                     autocomplete: true,
                     customer_id: SQAURE_UUID,
                     location_id: LOCATION_ID,
@@ -100,7 +172,7 @@ export const handleSquareCharge = async (
           }
   
           return resolve(LOCATION_ID as string);
-        }, 500);
+        }, 100);
       });
     }
   
@@ -111,7 +183,6 @@ export const handleSquareCharge = async (
     if (
         address != null &&
         SQR_PI !== "" &&
-        SQAURE_PM !== "" && 
         typeof product.price == "number" &&
         product.title !== "" &&
         (Number(product.variant_id) > 0 || product.variant_id  !== "")
@@ -124,7 +195,7 @@ export const handleSquareCharge = async (
           })
         }
         functions.logger.info(" ❷ [EXTERNAL] ", external);
-        handleSuccessPayment(customer, product, SQR_PI, SQAURE_PM, shipping, high_risk, bump, external, draft_order_id);
+        handleSuccessPayment(customer, product, SQR_PI, (SQAURE_PM ? SQAURE_PM : SQURE_PM ? SQURE_PM : ""), shipping, high_risk, bump, external, draft_order_id);
         functions.logger.info(" ❷ [DRAFT ORDER] - Created 👍🏻");
     } 
   
