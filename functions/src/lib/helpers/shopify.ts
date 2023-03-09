@@ -122,6 +122,25 @@ export const createShopifyOrder =  async (
       })
     }
 
+    let shipping_lines = [
+      {
+        custom  : true,
+        price : "5.99",
+        title : "Standard Shipping"
+      }
+    ];
+
+    if (draft_order.current_total_price > 10000) {
+      shipping_lines = [
+        {
+          custom  : true,
+          price : "0.00",
+          title : "Free Shipping"
+        }
+      ];
+    }
+
+
     const data = {
         order: {
             line_items: draft_order ? await cartToOrder(draft_order.line_items) : null ,
@@ -131,13 +150,7 @@ export const createShopifyOrder =  async (
                 id: customer?.shopify_uuid
             },
             tags: "CUSTOM_CLICK_FUNNEL",
-            shipping_lines: [
-                {
-                  custom  : true,
-                  price : "5.99",
-                  title : "Standard Shipping"
-                }
-            ],
+            shipping_lines: shipping_lines,
             shipping_address:{
                 name: (customer.first_name ? customer.first_name : "") + (customer.last_name ? customer.last_name : customer.first_name && customer.last_name  ? customer.last_name : "null" ),
                 address1: address[0]?.line1 ? address[0]?.line1 : "",

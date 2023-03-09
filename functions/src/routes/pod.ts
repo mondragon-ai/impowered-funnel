@@ -11,6 +11,7 @@ import fetch from "node-fetch";
 import { divinciRequests, shineOnAPIRequests } from "../lib/helpers/requests";
 import { createVariantsFromOptions } from "../lib/helpers/products/variants";
 import { Product } from "../lib/types/products";
+import { firestore } from "firebase-admin";
 
 type Design = {
     id: string,
@@ -38,6 +39,9 @@ type DesignProduct = {
     option3: string,
     meta: {}[],
     external?: string
+    url: string
+    updated_at: firestore.Timestamp
+    created_at: firestore.Timestamp
 }
 
 
@@ -164,10 +168,16 @@ export const podRoutes = (app: express.Router) => {
             option2,
             option3,
             large_asset_url,
-            external
+            external,
+            url,
+            title,
+            meta
         } = req.body as DesignProduct; 
 
         let designs = [] as DesignProduct[]
+
+        console.log(req.body)
+
 
         if (sku !== "" && id == "") {
             try {
@@ -187,7 +197,7 @@ export const podRoutes = (app: express.Router) => {
                 text = " 🚨 [ERROR]: Could not fetch design with SKU.";
                 ok = true;
             }
-        }
+        } 
 
 
         if (id && id !== "" && sku == "") {
@@ -203,16 +213,42 @@ export const podRoutes = (app: express.Router) => {
                 text = " 🚨 [ERROR]: Could not fetch design with ID!.";
                 ok = true;
             }
+        } else {
+            designs.push({
+                sku,
+                url,
+                title,
+                large_asset_url: url,
+                small_asset_url: url,
+                meta: meta ? meta : [],
+                updated_at: admin.firestore.Timestamp.now(),
+                created_at: admin.firestore.Timestamp.now(),
+                merchant_uuid: "",
+                options: {
+                    options1: [],
+                    options2: [],
+                    options3: []
+                },
+                option1: "",
+                option2: "",
+                option3: ""
+            });
         }
 
         let product_data: Product = {} as Product;
 
         if (designs.length > 0 && options) {
 
+            const img_list = url && url !== "" ? [{
+                alt: "",
+                id: "img_" + crypto.randomBytes(5).toString("hex").substring(0,10),
+                url: url
+            }] : []
+
             // create paload
             product_data = {
                 merchant_uuid: merchant_uuid,
-                id: "" + crypto.randomBytes(5).toString("hex"),
+                id: "pro_" + crypto.randomBytes(5).toString("hex"),
                 high_risk: false,
                 title: designs[0].title,
                 description: "",
@@ -236,7 +272,7 @@ export const podRoutes = (app: express.Router) => {
                 variants: [],
                 options: options,
                 videos: [],
-                images: [],
+                images: img_list,
                 external_id: "",
                 external_type: ""
             };
@@ -272,30 +308,59 @@ export const podRoutes = (app: express.Router) => {
             ok = true;
         }
 
+        if (designs[0].id && designs[0].id !== "") {
+            try {
 
-        try {
+                await updateDocument(merchant_uuid, "designs", designs[0].id as string, {
+                    ...designs[0],
+                    large_asset_url: large_asset_url ? large_asset_url : designs[0].small_asset_url,
+                    option1: option1 ? option1 : "",
+                    option2: option2 ? option2 : "",
+                    option3: option3 ? option3 : "",
+                    options: options ? options : {},
+                    meta: [
+                        ...designs[0].meta,
+                        {
+                            product_id: product_id
+                        }
+                    ]
+                } as DesignProduct);
 
-            await updateDocument(merchant_uuid, "designs", designs[0].id as string, {
-                ...designs[0],
-                large_asset_url: large_asset_url ? large_asset_url : designs[0].small_asset_url,
-                option1: option1 ? option1 : "",
-                option2: option2 ? option2 : "",
-                option3: option3 ? option3 : "",
-                options: options ? options : [],
-                meta: [
-                    ...designs[0].meta,
-                    {
-                        product_id: product_id
-                    }
-                ]
-            } as DesignProduct);
+            } catch (error) {
+                functions.logger.error(text)
+                status = 400;
+                text = " 🚨 [ERROR]: Could not update design.";
+                ok = true;
+            }
+        } else {
 
-        } catch (error) {
-            functions.logger.error(text)
-            status = 400;
-            text = " 🚨 [ERROR]: Could not update design.";
-            ok = true;
+            try {
+                if (sku !== "" && url !== ""){
+                    // create document
+                    await createDocument(merchant_uuid, "designs", "des_", {
+                        ...designs[0],
+                        large_asset_url: large_asset_url ? large_asset_url : designs[0].small_asset_url,
+                        option1: option1 ? option1 : "",
+                        option2: option2 ? option2 : "",
+                        option3: option3 ? option3 : "",
+                        options: options ? options : {},
+                        meta: [
+                            ...designs[0].meta,
+                            {
+                                product_id: product_id
+                            }
+                        ]
+                    });
+                }
+            } catch (e) {
+                functions.logger.error(text)
+                status = 200;
+                text = " 🚨 [ERROR]: Design could not be uploaded";
+                ok = true;
+            }
         }
+
+        
 
         if (external && external == "SHOPIFY") {
             try {
@@ -323,6 +388,7 @@ export const podRoutes = (app: express.Router) => {
                         requires_shipping: true,
                     })
                 });
+
                 let productData = {
                     product: {
                         title: product_data.title ? product_data.title : "",

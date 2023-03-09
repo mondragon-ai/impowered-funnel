@@ -180,7 +180,9 @@ import { shopifyRequest } from "./shopify";
     let STRIPE_PI = "";
     let STRIPE_PM = "";
 
-    const p = Number(price) && Number(price) > 0 ? Number(price) : 0;
+    let p = Number(price) && Number(price) > 0 ? Number(price) : 0;
+    p = p < 10000 ? p + 599 : p;
+    
     async function getMethod() {
       return new Promise( (resolve) => {
         return setTimeout(async () => {
@@ -414,11 +416,11 @@ export const createSubscription = async (STRIPE_UUID: string, STRIPE_PM: string)
         {
           price_data: {
             currency: "usd",
-            product: "prod_M5BDYb70j19Und",
+            product: "prod_MrSmUce6eJH13p",
             recurring: {
               interval: "month"
             },
-            unit_amount: 4000
+            unit_amount: 900
           }
         },
       ],

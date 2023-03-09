@@ -2,7 +2,7 @@ import * as express from "express";
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import { completeDraftOrder } from "../lib/helpers/draft_orders/complete";
-import { createDocument, getCollections, getDocument, getPaginatedCollections } from "../lib/helpers/firestore";
+import { createDocument, deleteDocument, getCollections, getDocument, getPaginatedCollections } from "../lib/helpers/firestore";
 // import { Customer } from "../lib/types/customers";
 import { DraftOrder, Order } from "../lib/types/draft_rders";
 import { validateKey } from "./auth";
@@ -156,6 +156,46 @@ export const orderRoutes = (app: express.Router) => {
             result: " Did delete: " + ok
         })
     });
+
+    app.post("/orders/delete", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ✅ [ORDERS] - Deleting Order(s)");
+        let status = 200,
+            text = " 🎉 [SUCCESS]: Order(s) sucessfully deleted",
+            ok = true;
+
+        // if valid
+        const merchant_uuid = req.body.merchant_uuid;
+
+        // Customer Data
+        const dra_uuid: string[] = req.body.dra_uuid;
+
+        // TODO: Sanatize scopes && data
+
+        try {
+
+            if (dra_uuid.length == 1) {
+                await deleteDocument(merchant_uuid, "orders", dra_uuid[0]);
+            } 
+            
+            if (dra_uuid.length > 1) {
+                await Promise.all(dra_uuid.map(id => deleteDocument(merchant_uuid, "orders", id)));
+            }
+
+        } catch (e) {
+            text = " 🚨 [ERROR]: Likely a problem deleting a order";
+            status = 500;
+            ok = false;
+            functions.logger.error(text);
+            throw new Error(text);
+        }
+
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: ok
+        })
+    });
+
 
     app.post("/draft_orders", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ====> Customer Created Route Started ");

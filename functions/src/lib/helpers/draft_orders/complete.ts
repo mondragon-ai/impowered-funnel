@@ -31,9 +31,30 @@ export const completeDraftOrder = async (
         functions.logger.error(text + " - Fetching & Deleting Doc");
     }
 
+    let shipping_lines = [
+        {
+          custom  : true,
+          price : "5.99",
+          title : "Standard Shipping"
+        }
+      ];
+  
+      if (draftOrder?.current_total_price && draftOrder?.current_total_price > 10000) {
+        shipping_lines = [
+          {
+            custom  : true,
+            price : "0.00",
+            title : "Free Shipping"
+          }
+        ];
+      }
+  
+  
+
     try {
         await createDocumentWthId(merchant_uuid, "orders", "ord_" + dra_uuid.substring(4), {
             ...draftOrder,
+            shipping_lines: shipping_lines,
             created_at: admin.firestore.Timestamp.now(),
             updated_at: admin.firestore.Timestamp.now()
         })

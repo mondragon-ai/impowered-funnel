@@ -151,7 +151,7 @@ export const handleSquareCharge = async (
                 const payment_response = await squareRequest("/payments", "POST", {
                     idempotency_key: idempotencyKey,
                     amount_money: {
-                        amount: p,
+                        amount: (p < 10000 ? (p + 599) : p),
                         currency: "USD"
                     },
                     source_id: (SQAURE_PM ? SQAURE_PM : SQURE_PM ? SQURE_PM : ""),

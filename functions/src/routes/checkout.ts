@@ -170,6 +170,8 @@ export const checkoutRoutes = (app: express.Router) => {
             customer: Customer | null
         }
 
+        functions.logger.info("STRIPE_SECRET")
+        functions.logger.info(product)
 
         // stripe PI, if complete
         let result = "";
