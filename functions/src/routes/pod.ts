@@ -482,7 +482,7 @@ export const podRoutes = (app: express.Router) => {
     });
 
     app.post("/pod/designs", validateKey, async (req: express.Request, res: express.Response) => {
-        functions.logger.debug(" ====> [POD ROUTE] - Started Design fetched ✅");
+        functions.logger.debug(" ====> [POD ROUTE] - Started Design fetch ");
         let status = 200,
             text = "[SUCCESS]: Design successfully fetched 👽",
             size = 0,
