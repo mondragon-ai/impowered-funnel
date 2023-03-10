@@ -33,22 +33,22 @@ export const completeDraftOrder = async (
 
     let shipping_lines = [
         {
-          custom  : true,
-          price : "5.99",
-          title : "Standard Shipping"
-        }
-      ];
-  
-      if (draftOrder?.current_total_price && draftOrder?.current_total_price > 10000) {
-        shipping_lines = [
-          {
             custom  : true,
-            price : "0.00",
+            price : 599,
+            title : "Standard Shipping"
+        }
+    ];
+
+    if (draftOrder?.current_total_price && draftOrder?.current_total_price > 10000) {
+        shipping_lines = [
+            {
+            custom  : true,
+            price : 0,
             title : "Free Shipping"
-          }
+            }
         ];
-      }
-  
+    }
+
   
 
     try {

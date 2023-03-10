@@ -51,6 +51,24 @@ export const handleSuccessPayment = async (
                     }
                 }
             }
+
+            let shipping_lines = [
+                {
+                    custom  : true,
+                    price : 599,
+                    title : "Standard Shipping"
+                }
+            ];
+
+            if (Number(price) && Number(price) > 10000) {
+                shipping_lines = [
+                    {
+                    custom  : true,
+                    price : 0,
+                    title : "Free Shipping"
+                    }
+                ];
+            }
     
             try {
                 let draft_data = {
@@ -67,6 +85,7 @@ export const handleSuccessPayment = async (
                     addresses: [
                         shipping as Address
                     ],
+                    shipping_lines: shipping_lines,
                     tags: ["CLICK_FUNNEL"],
                     order_number: "SH-" + crypto.randomBytes(5).toString("hex").toUpperCase(),
                     first_name: (shipping?.name) ? shipping?.name as string : "",

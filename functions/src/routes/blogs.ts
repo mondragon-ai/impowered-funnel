@@ -58,6 +58,7 @@ type BlogCollectionFetch = {
 type BlogDelete = {
     merchant_uuid: string,
     blo_uuid: string
+    blog_ids: string[]
 }
 
 type BlogFetch = {
@@ -346,7 +347,7 @@ export const blogRoutes = (app: express.Router) => {
     });
 
     app.post("/blogs/delete", validateKey, async (req: express.Request, res: express.Response) => {
-        functions.logger.debug(" ✅ [BLOG ROUTE] - Ready to fetch colleciton");
+        functions.logger.debug(" ✅ [BLOG ROUTE] - Ready delete blog(s)");
         let status = 200,
             text = " 🎉 [SUCCESS]: Blogs Successfully Deleted",
             ok = true;
@@ -354,16 +355,20 @@ export const blogRoutes = (app: express.Router) => {
         let {
             blo_uuid,
             merchant_uuid,
+            blog_ids
         } = req.body as BlogDelete; 
-
-        let blogs: Blog[] = [];
-        let size = 0;
 
         try {
 
-            if (blo_uuid !== "") {
+            if (blo_uuid && blo_uuid !== "") {
+                functions.logger.debug(" ❶ [BLOG_ID] -> Delete Single");
                 await deleteDocument(merchant_uuid, "blogs", blo_uuid);
-            }   
+            }  
+            
+            if (blog_ids && blog_ids.length >= 1) {
+                functions.logger.debug(" ❶ [BLOG_IDS] -> Loop through & delete single");
+                await Promise.all(blog_ids.map(id => deleteDocument(merchant_uuid, "blogs", id)));
+            }
             
         } catch (e) {
             ok = false;
@@ -375,10 +380,7 @@ export const blogRoutes = (app: express.Router) => {
         res.status(status).json({
             ok: ok,
             text: text, 
-            result: {
-                size: size,
-                blogs: blogs ? blogs.sort((a,b) => b.updated_at._seconds - a.updated_at._seconds) : []
-            }
+            result: ok
         })
 
     });
@@ -800,7 +802,8 @@ export const blogRoutes = (app: express.Router) => {
             result: {
                 new_text,
                 head_line,
-                subheadline
+                subheadline,
+                sections: blog.sections
             }
         })
 

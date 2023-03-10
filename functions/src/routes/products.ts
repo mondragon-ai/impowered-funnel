@@ -2,7 +2,7 @@ import * as express from "express";
 import * as crypto from "crypto";
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
-import { createDocument, createDocumentWthId, getCollections, getDocument, updateDocument } from "../lib/helpers/firestore";
+import { createDocument, createDocumentWthId, deleteDocument, getCollections, getDocument, updateDocument } from "../lib/helpers/firestore";
 import { validateKey} from "./auth";
 import { Product, ShopifyProduct, Variant} from "../lib/types/products";
 import { shopifyRequest } from "../lib/helpers/shopify";
@@ -294,4 +294,44 @@ export const productRoutes = (app: express.Router) => {
             data: data
         });
     });
+
+    app.post("/products/delete", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ✅ [PRODUCTS] - Deleting Product(s)");
+        let status = 200,
+            text = " 🎉 [SUCCESS]: Product(s) sucessfully deleted",
+            ok = true;
+
+        // if valid
+        const merchant_uuid = req.body.merchant_uuid;
+
+        // Customer Data
+        const product_ids: string[] = req.body.products;
+
+        // TODO: Sanatize scopes && data
+
+        try {
+
+            if (product_ids.length == 1) {
+                await deleteDocument(merchant_uuid, "products", product_ids[0]);
+            } 
+            
+            if (product_ids.length > 1) {
+                await Promise.all(product_ids.map(id => deleteDocument(merchant_uuid, "products", id)));
+            }
+
+        } catch (e) {
+            text = " 🚨 [ERROR]: Likely a problem deleting a product";
+            status = 500;
+            ok = false;
+            functions.logger.error(text);
+            throw new Error(text);
+        }
+
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: ok
+        })
+    });
+
 }
