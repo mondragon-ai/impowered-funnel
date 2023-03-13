@@ -148,6 +148,31 @@ export const updateSessions = async (
         data: updated
     }
 }
+export const updateMerchant = async (
+    api_key: string,
+    data: any,
+) => {
+    // Data for validation in parent
+    let text = "[SUCCESS]: Document Created 👍🏻", status = 200, updated = true;
+
+    try {
+        await db
+        .collection("merchants")
+        .doc(api_key)
+        .set(data, { merge: true });
+    } catch {
+        text = " - Could not update document.";
+        status = 400;
+        updated = false;
+    }
+
+    // return either result 
+    return {
+        text: text,
+        status: status,
+        data: updated
+    }
+}
 
 /**
  * Create app sesion in primary DB 
@@ -477,6 +502,35 @@ export const simlpeSearch = async (
     .collection("merchants")
     .doc(merchant_uuid)
     .collection(collection)
+    .where(key, "==", data)
+    .get()
+
+    if (result.empty) {
+        functions.logger.error(" 🚨 [SEARCHING] -  ❸ Document NOT found");
+        text = " - Document NOT updated 👎🏻";
+        status = 400;
+        result = null;
+    }
+
+    return {
+        text: text,
+        status: status,
+        data: {
+            list: result 
+        }
+    }
+}
+
+
+export const findMerchant = async (
+    key: string,
+    data: any
+) => {
+    // Data for validation in parent
+    let text = " - Document found 👍🏻", status = 200;
+
+    let result: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null = await db
+    .collection("merchants")
     .where(key, "==", data)
     .get()
 

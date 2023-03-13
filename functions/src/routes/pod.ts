@@ -3,7 +3,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as sharp from "sharp";
 import * as crypto from "crypto";
-import { createDocument, getCollections, getDocument, simlpeSearch, updateDocument } from "../lib/helpers/firestore";
+import { createDocument, deleteDocument, getCollections, getDocument, simlpeSearch, updateDocument } from "../lib/helpers/firestore";
 import { validateKey } from "./auth";
 import { createProduct, fetchOrders } from "../lib/helpers/shopify";
 // import { storage } from "../firebase";
@@ -481,6 +481,52 @@ export const podRoutes = (app: express.Router) => {
         })
     });
 
+    app.post("/pod/designs/delete", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ✅ [DESIGNS] - Started Design batch delete ");
+        let status = 200,
+            text = " 🎉 [SUCCESS]: Design successfully deleted ",
+            size = 0,
+            ok = true;
+
+        let {
+            designs,
+            merchant_uuid,
+        } = req.body as {
+            merchant_uuid: string,
+            designs:  string[] ,
+            meta: {}[]
+        }; 
+
+        try {
+
+            if (designs && designs.length == 1) {
+                // delete design document
+                await deleteDocument(merchant_uuid, "designs", designs[0]);
+            }
+
+            if (designs && designs.length > 1) {
+                // delete design document
+                await Promise.all(designs.map(id => deleteDocument(merchant_uuid, "designs", id)));
+            }
+
+
+        } catch (e) {
+            functions.logger.error(text)
+            status = 200;
+            text = " 🚨 [ERROR]: Design could not be deleted";
+            ok = true;
+        }
+        
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: {
+                size: size,
+                list: designs
+            }
+        })
+    });
+
     app.post("/pod/designs", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ====> [POD ROUTE] - Started Design fetch ");
         let status = 200,
@@ -656,7 +702,6 @@ export const podRoutes = (app: express.Router) => {
             }
         })
     });
-
 
     app.post("/pod/poems", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ====> [POD ROUTE] - Started Poem to Shine On Route ✅");

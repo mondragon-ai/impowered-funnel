@@ -382,6 +382,35 @@ export const giveGiftCard = async (customerID: string) => {
 
 
 
+
+
+
+export const createWebhook = async (shopify_api_key: string) => {
+
+  console.log(shopify_api_key)
+  // Make request to shopify 
+  const response = await fetch(URL + "graphql.json", {
+    method: "POST",
+    body:  JSON.stringify({
+      "query": "mutation ($topic: WebhookSubscriptionTopic!, $callbackUrl: URL!) { webhookSubscriptionCreate(topic: $topic, webhookSubscription: {callbackUrl: $callbackUrl, format: JSON}) {userErrors {field message} webhookSubscription {id} } }",
+      "variables": {
+        "topic": "ORDERS_CREATE",
+        "callbackUrl": "https://us-central1-impowered-funnel.cloudfunctions.net/funnel/shopify/order/complete"
+      }
+    }) ,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": shopify_api_key,
+    }
+  });
+
+
+  const gift_card = await response.json()
+
+  return gift_card;
+
+}
+
 // /**
 //  *  Helper Fn - STEP #5
 //  * Create Draft Order for Shopify && 
