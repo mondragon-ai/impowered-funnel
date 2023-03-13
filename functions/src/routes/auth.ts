@@ -59,7 +59,8 @@ export const authRoutes = (app: express.Router) => {
             text: text,
             data: req.body
         })
-    })
+    });
+
 }
 
 export const validateKey = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
