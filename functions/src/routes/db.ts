@@ -175,6 +175,50 @@ export const dbManagerRoutes = (app: expres.Router) => {
     
 };
 
+export const createAlgoDB = async (
+    update_object: any,
+    collection: string,
+) => {
+    functions.logger.info(update_object)
+    functions.logger.info(collection)
+
+    let push_data: {}[] = [];
+
+    // Push to Algolia index
+    try {
+        if (update_object && collection == "blogs") {
+            functions.logger.debug(" => Blogs Ready to Sync");
+            // If data is returned successfully sync
+            push_data.push({...update_object, objectID: update_object?.id })
+
+            if (push_data.length > 0) {
+                functions.logger.debug(" => Data ready to sync to algolia");
+                await blog_index.saveObjects(push_data);
+            }
+        }
+        
+        if (update_object && collection == "products") {
+            functions.logger.debug(" => Products Ready to Sync");
+            // If data is returned successfully sync
+            push_data.push({...update_object, objectID: update_object?.id })
+
+            if (push_data.length > 0) {
+                functions.logger.debug(" => Data ready to sync to algolia");
+                await product_index.saveObjects(push_data);
+
+            }
+        }
+
+    } catch (e) {
+        let text = " 🚨 [ERROR]: Likely a problem uploading / syncing primary db with angolia. Check logs";
+        functions.logger.error(text);
+    }
+    functions.logger.info(push_data)
+
+    return
+}
+
+
 export const updateAlgoliaFn = async (
     update_object: any,
     collection: string,

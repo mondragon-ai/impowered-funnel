@@ -23,6 +23,7 @@ import { blogRoutes } from "./routes/blogs";
 import { marketingRoutes } from "./routes/marketing";
 import { botRoutes } from "./routes/bot";
 import { shopifyOrderCreatedWebHook } from "./webhooks/shopifyOrders";
+import { merchantRoutes } from "./routes/merchants";
 
 
 export const rest = (db: FirebaseFirestore.Firestore) => {
@@ -94,6 +95,8 @@ export const rest = (db: FirebaseFirestore.Firestore) => {
     botRoutes(app)
     
     shopifyOrderCreatedWebHook(app)
+
+    merchantRoutes(app)
 
     return app
 }

@@ -12,7 +12,7 @@ export const authRoutes = (app: express.Router) => {
         functions.logger.debug(' ✅ [SESSIONS] - Start Session Validation Route');
         let text = "ERROR: Likely internal prolem 🔥", status= 500, result: AppSession | any = null;
 
-        const merchant_uuid = "50rAgweT9PoQKs5u5o7t"
+        const merchant_uuid = req.body.merchant_uuid || "50rAgweT9PoQKs5u5o7t";
 
         const API_KEY = generateAPIKey();
 
@@ -26,7 +26,7 @@ export const authRoutes = (app: express.Router) => {
             usage: { time: Math.floor((new Date().getTime())), count: 0 },
             dev_api_key: "string",
             production: false,
-            roles: ["ALL", "STOREFRONT"]
+            roles: ["STOREFRONT"]
         };
 
         try {

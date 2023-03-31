@@ -1,7 +1,7 @@
 import * as express from "express";
 import * as functions from "firebase-functions";
 import { findMerchant, getCollections, updateMerchant } from "../lib/helpers/firestore";
-import { createWebhook } from "../lib/helpers/shopify";
+import { createShopifyOrderBiglyPod, createShopifyPODCustomer, createWebhook } from "../lib/helpers/shopify";
 import * as admin from "firebase-admin";
 import { validateKey } from "../routes/auth";
 // import { createDocument } from "../lib/helpers/firestore";
@@ -16,12 +16,13 @@ export const shopifyOrderCreatedWebHook = (app: express.Router) => {
             result: string = "",
             ok = true;
 
-        const { headers } = req;
-        functions.logger.info(req.body);
+        const { headers, body } = req;
         const shopify_domain = headers['x-shopify-shop-domain'];
-        // const shopifyApi = headers['x-shopify-access-token'];
-        functions.logger.info(shopify_domain);
         const merchants = await findMerchant("SHOPIFY_DOMAIN",shopify_domain);
+
+        let matchedDesignObjects: any[] = [];
+        // let line_items_product: any[] = [];
+        let pod_shopify_product: string = "";
       
         if (merchants.status < 300 && merchants.data.list) {
             let merchant_uuid = "";
@@ -30,35 +31,91 @@ export const shopifyOrderCreatedWebHook = (app: express.Router) => {
                     merchant_uuid = m.id
                 }
             });
-            functions.logger.info(merchant_uuid);
 
             try {
-                const order = req.body;
+                const order = body;
                 const lineItems = order.line_items;
-                let matchedDesignObjects = [];
             
                 // Get matching Design Objects in imPowered
                 const designObjects = await getCollections(merchant_uuid, "designs");
 
-                functions.logger.info(designObjects);
                 for (const lineItem of lineItems) {
                     const li_sku = lineItem.sku as string;
                     const matchingDesignObject = designObjects.data.collection && designObjects.data.collection.find(
                         (obj) => li_sku.includes(obj.sku)
                     );
                     if (matchingDesignObject) {
-                        matchedDesignObjects.push(matchingDesignObject);
+                        pod_shopify_product = matchingDesignObject.pod_shopify;
+                        console.log(pod_shopify_product)
+                        console.log(lineItem)
+                        matchedDesignObjects.push(lineItem);
                     }
                 }
 
-                functions.logger.info(matchedDesignObjects);
-            //   // Update the matched Design Objects in your database
-            // TODO: CHARGE ON EACH ===> HOW TO STRUCTURe?
-            // TODO: SEND TO POD TEAM w/ new API
-            // TODO: UPDATE ANALYTICS ? 
-            //   await updateDesignObjects(matchedDesignObjects);
+                if (matchedDesignObjects.length < 1) {
+                    text = " ⚠️ [ERROR] Likely does not have a desgn needing to be printed";
+                    status = 205;
+                }
+
             } catch (error) {
-              console.log(error);
+                functions.logger.error(text);
+            }
+
+            let shopify_uuid = "";
+
+            // Create Shpify Customer
+            try {
+                const order = body;
+                const shipping = order.shipping_address;
+                const email = order.email;
+
+                const respoonse = await createShopifyPODCustomer(shipping, email);
+
+                if (respoonse != undefined) {
+                    const result = JSON.parse(JSON.stringify(respoonse));
+    
+                    if (result.customers[0] && result.customers[0].id != "") {
+                        functions.logger.info(" ❹ [SHOPIFY] - External UUID Created");
+                        shopify_uuid = result.customers[0].id;
+                    }
+                }
+                
+            } catch (error) {
+                functions.logger.error(error);
+            }
+
+            // // Fethc Bigly POD Product
+            // TODO: Consider if this step is necceary 
+            
+            // try {
+
+            //     const respoonse = await fetchPODProduct(pod_shopify_product);
+
+            //     if (respoonse != undefined) {
+            //         const result = JSON.parse(JSON.stringify(respoonse));
+
+            //         console.log(" 🛍️ [SHOPIFY] FECHED PRODUCT")
+            //         console.log(result)
+    
+            //         if (result.product && result.product.variants) {
+            //             const pod_variants = result.product.variants as {sku: string}[];
+            //             functions.logger.info(" ❹ [SHOPIFY] - External UUID Created");
+            //             line_items_product = pod_variants.filter((v) => v.sku.includes())
+            //         }
+            //     }
+                
+            // } catch (error) {
+            //     functions.logger.error(error);
+            // }
+
+            // Create Shopify order to POD store
+            try {
+                const order = body;
+                await createShopifyOrderBiglyPod(order, matchedDesignObjects, shopify_uuid)
+
+            } catch (error) {
+                functions.logger.error(error);
+                
             }
         }
       

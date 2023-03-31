@@ -5,7 +5,7 @@ import * as sharp from "sharp";
 import * as crypto from "crypto";
 import { createDocument, deleteDocument, getCollections, getDocument, simlpeSearch, updateDocument } from "../lib/helpers/firestore";
 import { validateKey } from "./auth";
-import { createProduct, fetchOrders } from "../lib/helpers/shopify";
+import { createProduct, createProductPOD, fetchOrders } from "../lib/helpers/shopify";
 // import { storage } from "../firebase";
 import fetch from "node-fetch";
 import { divinciRequests, shineOnAPIRequests } from "../lib/helpers/requests";
@@ -176,7 +176,7 @@ export const podRoutes = (app: express.Router) => {
 
         let designs = [] as DesignProduct[]
 
-        console.log(req.body)
+        let design_uuid = "";
 
 
         if (sku !== "" && id == "") {
@@ -307,61 +307,6 @@ export const podRoutes = (app: express.Router) => {
             text = " 🚨 [ERROR]: Could not create product.";
             ok = true;
         }
-
-        if (designs[0].id && designs[0].id !== "") {
-            try {
-
-                await updateDocument(merchant_uuid, "designs", designs[0].id as string, {
-                    ...designs[0],
-                    large_asset_url: large_asset_url ? large_asset_url : designs[0].small_asset_url,
-                    option1: option1 ? option1 : "",
-                    option2: option2 ? option2 : "",
-                    option3: option3 ? option3 : "",
-                    options: options ? options : {},
-                    meta: [
-                        ...designs[0].meta,
-                        {
-                            product_id: product_id
-                        }
-                    ]
-                } as DesignProduct);
-
-            } catch (error) {
-                functions.logger.error(text)
-                status = 400;
-                text = " 🚨 [ERROR]: Could not update design.";
-                ok = true;
-            }
-        } else {
-
-            try {
-                if (sku !== "" && url !== ""){
-                    // create document
-                    await createDocument(merchant_uuid, "designs", "des_", {
-                        ...designs[0],
-                        large_asset_url: large_asset_url ? large_asset_url : designs[0].small_asset_url,
-                        option1: option1 ? option1 : "",
-                        option2: option2 ? option2 : "",
-                        option3: option3 ? option3 : "",
-                        options: options ? options : {},
-                        meta: [
-                            ...designs[0].meta,
-                            {
-                                product_id: product_id
-                            }
-                        ]
-                    });
-                }
-            } catch (e) {
-                functions.logger.error(text)
-                status = 200;
-                text = " 🚨 [ERROR]: Design could not be uploaded";
-                ok = true;
-            }
-        }
-
-        
-
         if (external && external == "SHOPIFY") {
             try {
 
@@ -466,10 +411,72 @@ export const podRoutes = (app: express.Router) => {
                 if (response) {
                     text = text + " [SHOPIFY] - Created Product 👍🏻"
                 };
+
+                const POD_response = await createProductPOD(productData);
+                if (POD_response) {
+                    design_uuid = POD_response.product.id;
+                    text = text + " POD Product Created ✅"
+                };
             } catch (e) {
                 functions.logger.error(text)
                 status = 400;
                 text = " 🚨 [ERROR]: Could not creaet shopify product.";
+                ok = true;
+            }
+        }
+
+        if (designs[0].id && designs[0].id !== "") {
+            try {
+
+                await updateDocument(merchant_uuid, "designs", designs[0].id as string, {
+                    ...designs[0],
+                    large_asset_url: large_asset_url ? large_asset_url : designs[0].small_asset_url,
+                    option1: option1 ? option1 : "",
+                    option2: option2 ? option2 : "",
+                    option3: option3 ? option3 : "",
+                    options: options ? options : {},
+                    meta: [
+                        ...designs[0].meta,
+                        {
+                            product_id: product_id
+                        }
+                    ]
+                } as DesignProduct);
+
+            } catch (error) {
+                functions.logger.error(text)
+                status = 400;
+                text = " 🚨 [ERROR]: Could not update design.";
+                ok = true;
+            }
+        } else {
+
+            try {
+                if (sku !== "" && url !== ""){
+                    // create document
+                    const response = await createDocument(merchant_uuid, "designs", "des_", {
+                        ...designs[0],
+                        large_asset_url: large_asset_url ? large_asset_url : designs[0].small_asset_url,
+                        option1: option1 ? option1 : "",
+                        option2: option2 ? option2 : "",
+                        option3: option3 ? option3 : "",
+                        options: options ? options : {},
+                        meta: [
+                            ...designs[0].meta,
+                            {
+                                product_id: product_id
+                            }
+                        ],
+                        pod_shopify: design_uuid
+                    });
+                    if (response.status <300 && response.data.id) {
+                        design_uuid = response.data.id;
+                    }
+                }
+            } catch (e) {
+                functions.logger.error(text)
+                status = 200;
+                text = " 🚨 [ERROR]: Design could not be uploaded";
                 ok = true;
             }
         }

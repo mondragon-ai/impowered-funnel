@@ -186,24 +186,29 @@ export const createAppSessions = async (
     data: any,
 ) => {
     // Data for validation in parent
-    let text = "SUCCESS: Document Created 👍🏻", status = 200;
-
-    //  generate doc uuid w/ prefix
-    const doc_uuid = api_key;
+    let text = " ✅ [SUCCESS]: Document Created 👍🏻", status = 200;
 
     let response; 
 
     try {
         response = await db
         .collection("sessions")
-        .doc(doc_uuid)
+        .doc(api_key)
         .set({
             ...data,
-            id: doc_uuid
+            created_at: admin.firestore.Timestamp.now(),
+            updated_at: admin.firestore.Timestamp.now(),
+            api_key: api_key,
+            usage: { time: Math.floor((new Date().getTime())), count: 0 },
+            dev_api_key: "string",
+            production: false,
+            roles: ["STOREFRONT"],
+            id: api_key
         });
     } catch {
-        text = " - Could not create document.";
+        text = " 🚨 [DB] Could not create session document.";
         status = 400;
+        functions.logger.error(text)
     }
 
     // return either result 
@@ -211,8 +216,8 @@ export const createAppSessions = async (
         text: text,
         status: status,
         data: {
-            id: doc_uuid,
-            customer: response ? response : null
+            id: api_key,
+            sessions: response ? response : null
         }
     }
 }
@@ -839,6 +844,46 @@ export const deleteDocument = async (
         data: {
             id: doc_uuid,
             customer: response ? response : null
+        }
+    }
+}
+/**
+ * Create docuemtn in primary DB 
+ * @param merchant_uuid: string
+ * @param prefix 
+ * @param data 
+ * @returns 
+ */
+ export const createMerchant = async (
+    doc_uuid: string,
+    data: any
+) => {
+    // Data for validation in parent
+    let text = " ✅ [SUCCESS]: Document Created 👍🏻", status = 200;
+
+    let response; 
+
+    try {
+        response = await db
+        .collection("merchants")
+        .doc(doc_uuid)
+        .set({
+            ...data,
+            id: doc_uuid
+        });
+    } catch {
+        text = " 🚨 [DB] Could not create document.";
+        status = 400;
+        functions.logger.error(text)
+    }
+
+    // return either result 
+    return {
+        text: text,
+        status: status,
+        data: {
+            id: doc_uuid,
+            merchant: response ? response : null
         }
     }
 }

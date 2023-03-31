@@ -2,7 +2,7 @@ import * as express from "express";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 // import * as sharp from "sharp";
-import { complexSearch, createDocument, deleteDocument, getCollections, getDocument, getPaginatedCollections, simlpeSearch, updateDocument} from "../lib/helpers/firestore"; //, getCollections, getDocument, simlpeSearch
+import { complexSearch, createDocument, deleteDocument, getCollections, getDocument, getPaginatedCollections, updateDocument} from "../lib/helpers/firestore"; //, getCollections, getDocument, simlpeSearch
 import { validateKey } from "./auth";
 import { divinciRequests } from "../lib/helpers/requests";
 import { Blog } from "../lib/types/blogs";
@@ -405,24 +405,86 @@ export const blogRoutes = (app: express.Router) => {
 
                 if (collection_type !== "") {
 
-                    const blog_response = await simlpeSearch(merchant_uuid, "blogs", "collection", collection_type);
-                    
-                    if (blog_response.status < 300 && blog_response.data.list) {
-                        const db_blogs = blog_response.data.list as FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>;
+                    // const blog_response = await simlpeSearch(merchant_uuid, "blogs", "collection", collection_type);
+                    functions.logger.debug(" ❶ ![BLOG_UUID] - Fetching Blogs");
 
-                        // let last_updated_at = 0;
-                        if (db_blogs.size > 0) {
-                            db_blogs.forEach( (b: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>)=> {
-                                if (b.exists) {
-                                    blogs.push(b.data() as Blog)
-                                }
-                            });
-                            status = 201;
-                            text = " 🎉 [SUCCESS]: Documents collection fetched. ";
-                            ok = true;
-                            size = db_blogs.size;
-                        }
+                    const blog_response = await getCollections(merchant_uuid, "blogs");
+                    
+                    if (blog_response.status < 300 && blog_response.data.collection) {
+                        blogs = blog_response.data.collection;
+                        status = 201;
+                        text = " 🎉 [SUCCESS]: Documents fetched. ";
+                        ok = true;
+                        size = blog_response.data.size;
+
+                        blogs = blogs.filter(b => b.collection == collection_type)
                     }
+
+                    const seconds = (blogs[blogs.length -1].updated_at as any)._seconds;
+                    functions.logger.debug(seconds);
+                    functions.logger.debug(blogs[blogs.length -1]);
+            
+                    try {
+            
+                        const start = admin.firestore.Timestamp.fromMillis(seconds * 1000);
+                        functions.logger.debug(start);
+            
+                        const response = await complexSearch(merchant_uuid, "blogs", "collection", collection_type, start);
+
+                        if (response.status < 300 && response.data.list) {
+                            functions.logger.debug(response.status);
+                            const db_blogs = response.data.list ;
+            
+                            if (db_blogs.size > 0) {
+                                db_blogs.forEach((b) => {
+                                    if (b.exists && blogs.length < 25) {
+                                        const blog = b.data() as Blog;
+            
+                                        if (blog.collection == collection_type) {
+                                            blogs.push(blog);
+                                        }
+                                    } 
+                                });
+                                status = 201;
+                                text = " 🎉 [SUCCESS]: Documents collection fetched. ";
+                                ok = true;
+                                size = db_blogs.size;
+                            }
+                        }
+                    } catch (e) {
+                        text = " 🚨 [ERROR]: Likely a problem fetching a blogs";
+                        status = 500;
+                        ok = false;
+                        functions.logger.error(text);
+                        throw new Error(text);
+                    }
+            
+                    
+                    // if (blog_response.status < 300 && blog_response.data.list) {
+                    //     const db_blogs = blog_response.data.list as FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>;
+
+                    //     // let last_updated_at = 0;
+                    //     if (db_blogs.size > 0) {
+                    //         db_blogs.forEach( (b: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>)=> {
+                    //             if (b.exists && blogs.length < 25) {
+                    //                 blogs.push(b.data() as Blog)
+                    //             } else {
+                    //                 res.status(status).json({
+                    //                     ok: ok,
+                    //                     text: text,
+                    //                     result: {
+                    //                         size: size,
+                    //                         blogs: blogs
+                    //                     }
+                    //                 })
+                    //             }
+                    //         });
+                    //         status = 201;
+                    //         text = " 🎉 [SUCCESS]: Documents collection fetched. ";
+                    //         ok = true;
+                    //         size = db_blogs.size;
+                    //     }
+                    // }
                 } 
             }   
             
@@ -570,7 +632,8 @@ export const blogRoutes = (app: express.Router) => {
 
                 status = 422;
                 const article_response = await fetch(url);
-
+                const test_article =  article_response;
+                functions.logger.debug(test_article)
                 if (!article_response.ok) {
                     throw new Error(`Failed to fetch article: ${article_response.statusText}`);
                 }
@@ -898,17 +961,17 @@ export const blogRoutes = (app: express.Router) => {
 
             const response = await complexSearch(merchant_uuid, "blogs", "collection", collection_type, start);
             if (response.status < 300 && response.data.list) {
-                const db_blogs = response.data.list;
+                const db_blogs = response.data.list ;
 
                 if (db_blogs.size > 0) {
-                    db_blogs.forEach(b => {
-                        if (b.exists) {
+                    db_blogs.forEach((b) => {
+                        if (b.exists && result.length < 25) {
                             const blog = b.data() as Blog;
 
                             if (blog.collection == collection_type) {
                                 result.push(blog);
                             }
-                        }
+                        } 
                     });
                     status = 201;
                     text = " 🎉 [SUCCESS]: Documents collection fetched. ";

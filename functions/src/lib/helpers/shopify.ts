@@ -100,6 +100,174 @@ export const createShineOnOrder = async (
 }
 
 
+
+
+export const createShopifyOrderBiglyPod =  async (
+  order: any,
+  line_items: any,
+  shopify_uuid: string
+) => {
+
+  let address = order.shipping_address;
+
+
+  let shipping_lines = [
+    {
+      custom  : true,
+      price : "5.99",
+      title : "Standard Shipping"
+    }
+  ];
+
+
+  const data = {
+      order: {
+          line_items: line_items,
+          currency: "USD",
+          financial_status: "paid",
+          customer:{
+              id: shopify_uuid
+          },
+          tags: "BIGLY_POD",
+          shipping_lines: shipping_lines,
+          shipping_address: address
+      }
+  }
+
+  console.log(data);
+
+  // Make request to shopify 
+  const response = await fetch("https://bigly-pod.myshopify.com/admin/api/2022-07/orders.json", {
+    method: "POST",
+    body:  JSON.stringify(data) ,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": process.env.SHOPIFY_BIGLY_POD || "",
+    }    
+  });
+  return response;
+}
+
+/**
+ * Helper Fn - STEP #3\
+ * Creates a customer object in shopify and return the customer.id || undefined
+ * @param shipping 
+ * @param email 
+ */
+export const createShopifyPODCustomer = async (shipping_address: any, email:string) => {
+  functions.logger.info(" ==> [SHOPIFY] - Start Update")
+
+  // Define vars
+  const {address1, city, province, province_code, zip, name, country, country_code, last_name, first_name, phone} = shipping_address;
+
+  // TODO: Validate address --> Helper fns???
+  
+  // Customer Data
+  const customer_data = {
+    customer:{ 
+      last_name: last_name ? last_name : "",
+      first_name: first_name ? first_name : "",
+      email: email,
+      phone: phone ? phone : "",
+      verified_email:true,
+      addresses:[
+        {
+          address1: address1 ? address1 : "",
+          city: city ? city : "",
+          province: province ? province : "",
+          phone: phone ? phone : "",
+          zip: zip ? zip : "",
+          last_name: last_name ? last_name : "",
+          first_name: first_name ? first_name : "",
+          default: true,
+          address2: "",
+          company: null,
+          country: country ? country : "",
+          country_code: country_code ? country_code : "",
+          name: name ? name : "",
+          province_code: province_code ? province_code : "",
+        }
+      ]
+    }
+  };
+
+  try {
+    // Create New Customer 
+    const response = await fetch("https://bigly-pod.myshopify.com/admin/api/2022-07/customers.json", {
+      method: "POST",
+      body:  JSON.stringify(customer_data) ,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": process.env.SHOPIFY_BIGLY_POD || "",
+      }    
+    });
+
+    // ? Log to BE 
+    functions.logger.log(" ==> #3 [SHOPIFY] - Request Made ");
+
+    // Check if exists && retrun {[customers: {id: customer.id}]}
+    const status = await checkPODStatus(response, email); 
+
+    // handle result
+    if (status === undefined) {
+      // ? Log to BE 
+      functions.logger.error(`\n\n\n\n
+        #3 SHOPIFY ERROR: Likely internal server`,
+        status
+      );
+      return undefined;
+    } else {
+      return status;
+    }
+  } catch (err) {
+    // ? Log to BE 
+    functions.logger.error(`\n\n\n\n
+      #3 SHOPIFY ERROR: Likely internal server`,
+      err
+    );
+    return undefined
+  }
+};
+
+/**
+ * Helper Fn - createShopifyCustomer()
+ * handle response and fetch existing user or return JSON repsonse of new 
+ * @param r - Response
+ * @param e - email
+ * @returns - {customer: [{id: customer.id}]} || undefined
+ */
+async function checkPODStatus(r: any, e: string) {
+  // If 200 >= x < 300 &&
+  // Return {customer: [{id: customer.id}]}
+  if (r.ok) { 
+    // Await json response and return data
+    const doc = await r.json();
+
+    console.log(" ====> [SHOPIFY] -> 200 resonse");
+    const d = new Object({
+        customers: [{
+            id: doc.customer.id
+        }] 
+    });
+    return d;
+
+  } else if ( r.status == 422 ) { 
+    try {
+      // If email is with an existing user, then search the email 
+      const response:Response = await shopifyRequest(
+        `customers/search.json?query=email:"${e}"&fields=id,email`, 
+        "GET"
+      );
+
+      const customer = await response.json()
+
+      console.log(" ====> [SHOPIFY] -> 422 resonse");
+      return new Object(customer);
+      
+    } catch (error) { return undefined; }
+  } else { return undefined; }
+};
+
 export const createShopifyOrder =  async (
     draft_order: DraftOrder,
     cus_uuid: string,
@@ -337,6 +505,70 @@ export async function createProduct(product: any) {
     console.log(" ====> [SHOPIFY] - Documents Fetched");
     console.log(order);
     return order;
+    
+  } catch (error) {
+    return undefined;
+  }
+};
+
+
+/**
+ * Helper Fn - Create product in shopify (likely for POD products)
+ * @param product - Product
+ * @returns - Product || undefined
+ */
+export async function createProductPOD(product: any) {
+
+  // If order Number exists
+  try {
+
+    // Create New Customer 
+    const response = await fetch("https://bigly-pod.myshopify.com/admin/api/2022-07/products.json", {
+      method: "POST",
+      body:  JSON.stringify(product) ,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": process.env.SHOPIFY_BIGLY_POD || "",
+      }    
+    });
+
+    const shopify_product = await response.json()
+
+    console.log(" ====> [SHOPIFY] - POD Product Created");
+    console.log(shopify_product.product.id);
+    return shopify_product;
+    
+  } catch (error) {
+    return undefined;
+  }
+};
+
+
+
+/**
+ * Helper Fn - Create product in shopify (likely for POD products)
+ * @param product - Product
+ * @returns - Product || undefined
+ */
+export async function fetchPODProduct(product_id: any) {
+
+  // If order Number exists
+  try {
+
+    // Create New Customer 
+    const response = await fetch("https://bigly-pod.myshopify.com/admin/api/2022-10/products/632910392.json" + product_id, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": process.env.SHOPIFY_BIGLY_POD || "",
+      }    
+    });
+
+    const shopify_product = await response.json()
+
+    console.log(" ====> [SHOPIFY] - POD Product fetched");
+    console.log(shopify_product);
+    return shopify_product;
     
   } catch (error) {
     return undefined;
