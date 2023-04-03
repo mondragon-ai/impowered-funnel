@@ -3,6 +3,7 @@ import * as crypto from "crypto";
 import { Merchant } from "../lib/types/merchants";
 // import { createAlgoDB } from "../routes/db";
 import { createAppSessions } from "../lib/helpers/firestore";
+import { decryptMsg } from "../lib/helpers/auth/auth";
 
 
 // import algoliasearch from "algoliasearch";
@@ -25,7 +26,7 @@ export const pmerchantCreated = functions.firestore
     let merchant: Merchant = snap.exists ? snap.data() as Merchant : {} as Merchant;
 
     try {
-        const storefront_api = "ipat_" + crypto.randomBytes(10).toString('hex');
+        const storefront_api = merchant.api_key !== "" ? decryptMsg(merchant.api_key) : "ipat_" + crypto.randomBytes(10).toString('hex');
 
         await createAppSessions(
             storefront_api, 

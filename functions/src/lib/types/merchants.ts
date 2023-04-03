@@ -14,6 +14,7 @@ export type Merchant = {
     created_at: FirebaseFirestore.Timestamp;
     updated_at: FirebaseFirestore.Timestamp;
     host: string
+    api_key: string
 }
 
 export type UserSummary = {

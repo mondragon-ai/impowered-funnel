@@ -2,10 +2,12 @@ import * as crypto from "crypto";
 import * as express from "express";
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { encryptMsg } from "../lib/helpers/auth/auth";
 import { createDocumentWthId, createMerchant } from "../lib/helpers/firestore";
 import {
     Merchant,
-    CreateMerchant
+    CreateMerchant,
+    User
 } from "../lib/types/merchants";
 
 const today = admin.firestore.Timestamp.now();
@@ -18,7 +20,7 @@ export const merchantRoutes = (app: express.Router) => {
 
     app.post("/merchants/create",  async (req: express.Request, res: express.Response) => {
         functions.logger.debug(' ✅ [MERCHANTS] - Create Merchant');
-        let text = "", status= 500, result: Merchant | any = null;
+        let text = "", status= 500, result: any = null;
 
         let {
             merchant,
@@ -30,6 +32,9 @@ export const merchantRoutes = (app: express.Router) => {
 
 
         const merchant_uuid = "mer_" + crypto.randomBytes(10).toString("hex");
+        const storefront_api = "ipat_" + crypto.randomBytes(10).toString('hex');
+
+        const hased_api = encryptMsg(storefront_api);
 
         try {
             const merchant_data = {
@@ -38,9 +43,16 @@ export const merchantRoutes = (app: express.Router) => {
                 created_at: today,
                 merchant_uuid: merchant_uuid,
                 host: req.hostname || "",
-            }
+                api_key: hased_api
+            } as Merchant;
 
             await createMerchant(merchant_uuid, merchant_data);
+
+            result = {
+                ...result,
+                merchant_uuid,
+                storefront_api
+            }
             
         } catch (e) {
             text = " 🚨 [ERROR]: creating merchant.";
@@ -51,8 +63,14 @@ export const merchantRoutes = (app: express.Router) => {
             const user_uuid = "use_" + (user.id || "");
             const user_data = {
                 ...user,
+                auth_uuid: user_uuid,
                 updated_at: today,
                 created_at: today,
+            } as User;
+
+            result = {
+                ...result,
+                user_uuid
             }
 
             await createDocumentWthId(merchant_uuid, "users", user_uuid, user_data);
