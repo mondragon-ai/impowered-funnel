@@ -765,6 +765,36 @@ export const getDocument = async (
 }
 
 
+export const searchMerchants = async (
+    key: string,
+    data: any
+) => {
+    // Data for validation in parent
+    let text = " [MERCHANT] - Found Store by [SHOP] name", status = 200;
+
+    let result: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData> | null = await db
+    .collection("merchants")
+    .where(key, "==", data)
+    .get()
+
+    if (result.empty) {
+        text = " ✅ [MERCHANTS] -  Merchant Doesnt exist";
+        functions.logger.error(text);
+        status = 420;
+        result = null;
+    }
+
+    return {
+        text: text,
+        status: status,
+        data: {
+            list: result 
+        }
+    }
+}
+
+
+
 export const getMerchant = async (
     merchant_uuid: string,
 ) => {
@@ -844,6 +874,50 @@ export const deleteDocument = async (
         data: {
             id: doc_uuid,
             customer: response ? response : null
+        }
+    }
+}
+
+/**
+ * Create User for Merchant
+ * @param merchant_uuid: string
+ * @param prefix 
+ * @param data 
+ * @returns 
+ */
+export const createMerchantUser = async (
+    merchant_uuid: string,
+    doc_uuid: string,
+    data: any
+) => {
+    // Data for validation in parent
+    let text = " ✅ [SUCCESS]: Document Created 👍🏻", status = 200;
+
+    let response; 
+
+    try {
+        response = await db
+        .collection("merchants")
+        .doc(merchant_uuid)
+        .collection("users")
+        .doc(doc_uuid)
+        .set({
+            ...data,
+            id: doc_uuid
+        });
+    } catch {
+        text = " 🚨 [DB] Could not create document.";
+        status = 400;
+        functions.logger.error(text)
+    }
+
+    // return either result 
+    return {
+        text: text,
+        status: status,
+        data: {
+            id: doc_uuid,
+            merchant: response ? response : null
         }
     }
 }

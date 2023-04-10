@@ -49,9 +49,9 @@ export const verifySecret = (check_against: string, password: string): boolean =
 }
 
 
-const algorithm = 'aes-256-cbc';
-const key = 'mySecretKey'; // Replace this with your own secret key
-const iv = crypto.randomBytes(16); // Generate a random initialization vector
+const algorithm = 'aes-256-gcm';
+const key = 'Secrets Dont Make Friends'; // Replace this with your own secret key
+const iv = crypto.randomBytes(32); // Generate a random initialization vector
 
 export const encryptMsg = (text: string): string => {
   const cipher = crypto.createCipheriv(algorithm, key, iv);

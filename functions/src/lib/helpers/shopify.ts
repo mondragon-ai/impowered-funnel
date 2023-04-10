@@ -71,6 +71,7 @@ export const createShineOnOrder = async (
       return addy
     } else { return  } 
   });
+
   // console.log(address);
   const data = {
     order: {
@@ -317,7 +318,7 @@ export const createShopifyOrder =  async (
             customer:{
                 id: customer?.shopify_uuid
             },
-            tags: "CUSTOM_CLICK_FUNNEL",
+            tags: "IMPOWERED",
             shipping_lines: shipping_lines,
             shipping_address:{
                 name: (customer.first_name ? customer.first_name : "") + (customer.last_name ? customer.last_name : customer.first_name && customer.last_name  ? customer.last_name : "null" ),
@@ -356,21 +357,21 @@ export const createShopifyCustomer = async (shipping: Address, email:string) => 
   const customer_data = {
     customer:{ 
       first_name: name,
-      last_name:"",
+      last_name: "",
       email: email,
-      phone:"",
+      phone: "",
       verified_email:true,
       addresses:[
         {
-          address1:line1,
+          address1: line1,
           city: city,
           province: state,
           phone: "",
           zip: zip,
-          last_name:"",
+          last_name: "",
           first_name: name,
-          country:"US",
-          country_name:"United States", 
+          country: "US",
+          country_name: "United States", 
           default: true
         }
       ]
@@ -380,9 +381,6 @@ export const createShopifyCustomer = async (shipping: Address, email:string) => 
   try {
     // Create New Customer 
     const response = await shopifyRequest( `customers.json`, "POST", customer_data);
-
-    // ? Log to BE 
-    functions.logger.log(" ==> #3 [SHOPIFY] - Request Made ");
 
     // Check if exists && retrun {[customers: {id: customer.id}]}
     const status = await checkStatus(response, email); 

@@ -6,9 +6,10 @@ import { Address } from "../types/addresses";
 import { Customer } from "../types/customers";
 // import { DailyFunnel } from "../types/analytics";
 import { DraftOrder, LineItem, Order } from "../types/draft_rders";
+import { Merchant } from "../types/merchants";
 // import { getToday } from "./date";
 import { handleSuccessPayment } from "./draft_orders/funnel_create";
-import { updateDocument } from "./firestore";
+import { getMerchant, updateDocument, updateMerchant } from "./firestore";
 import { shopifyRequest } from "./shopify";
 
 /**
@@ -442,4 +443,94 @@ export const createSubscription = async (STRIPE_UUID: string, STRIPE_PM: string)
   }
 };
 
+
+// Create a unique account for the merchant
+export const createMerchantAccount = async (merchantId: string, merchantEmail: string) => {
+  try {
+    // Create an account for the merchant
+    const account = await stripe.accounts.create({
+      type: 'imPowered',
+      email: merchantEmail,
+      country: 'US', // Set the country based on the merchant's location
+      capabilities: {
+        card_payments: {
+          requested: true,
+        },
+        transfers: {
+          requested: true,
+        },
+      },
+      metadata: {
+        merchant_id: merchantId,
+      },
+    });
+
+    await updateMerchant(merchantId,{
+      stripe_account_id: account.id,
+    })
+
+    // Return the account ID to the frontend
+    return account.id;
+  } catch (error) {
+    console.error(error);
+    throw new Error('Failed to create merchant account');
+  }
+};
+
+// Charge a customer using the merchant's account
+export const chargeCustomer = async (merchantId: string, customerId: string, amount: number, description: string) => {
+  try {
+    // Get the merchant's account ID from your Firestore database
+    const merchantDoc = await getMerchant(merchantId);
+    const stripeAccountId =  merchantDoc.data && merchantDoc.data.stripe && merchantDoc.data.stripe.UUID  ? merchantDoc.data.stripe.UUID  : ""
+
+    // Create a payment intent on the merchant's account
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount,
+      currency: 'usd',
+      payment_method_types: ['card'],
+      application_fee_amount: Math.round(amount * 0.1), // 10% fee on each transaction
+      description: description,
+      transfer_data: {
+        destination: stripeAccountId,
+      },
+      metadata: {
+        merchant_id: merchantId,
+        customer_id: customerId,
+      },
+    });
+
+    // Return the payment intent client secret to the frontend
+    return paymentIntent.client_secret;
+  } catch (error) {
+    console.error(error);
+    throw new Error('Failed to charge customer');
+  }
+};
+
+// Schedule a payout to the merchant's account
+export const schedulePayout = async (merchantId: string, amount: number) => {
+  try {
+    // Get the merchant's account ID from your Firestore database
+    const merchantDoc = (await getMerchant(merchantId)).data as Merchant;
+    const stripeAccountId = merchantDoc.stripe &&  merchantDoc.stripe ?  merchantDoc.stripe.UUID : "";
+
+    // Create a payout to the merchant's account
+    const payout = await stripe.payouts.create({
+      amount: amount,
+      currency: 'usd',
+      metadata: {
+        merchant_id: merchantId,
+      },
+    }, {
+      stripeAccount: stripeAccountId,
+    });
+
+    // Return the payout ID to the frontend
+    return payout.id;
+  } catch (error) {
+    console.error(error);
+    throw new Error('Failed to schedule payout');
+  }
+};
 

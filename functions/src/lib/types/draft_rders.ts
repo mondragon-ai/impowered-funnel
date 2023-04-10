@@ -2,7 +2,7 @@ import { Address, ShippingLines } from "./addresses";
 import { DicsountCode } from "./discounts";
 
 export interface LineItem {
-    variant_id: string,
+    variant_id: number | string,
     product_id: string,
     high_risk: boolean,
     title: string,
@@ -80,8 +80,10 @@ export interface Order {
     current_total_price: number, 
     customer_id?: string,
     email?: string,
+    Email?: string,
     tags?: string[],
     note?: string,
+    shopify_uuid?: string,
     shipping_line?: ShippingLines,
     fullfillment_status?: "PRINTED" | "SENT" | "TRANSIT" | "HOLD" | "DELIVERED" | "LOST",
     payment_status?: "PAID" | "UNPAID",
@@ -90,4 +92,16 @@ export interface Order {
     first_name: string,
     last_name: string,
     order_number: string,
+    'Last Name'?: string,
+    'First Name'?: string,
+    'Product Names'?: string,
+    'Shipping Address 1': string
+    'Shipping Address 2': string
+    'Shipping City': string,
+    'Shipping State': string,
+    'Shipping Zip': string,
+    "Shipping Country": string,
+    'Original Amount Cents': string,
+    'Charge': string,
+    'Subscription': string
 }

@@ -9,7 +9,7 @@ import { Order } from "../lib/types/draft_rders";
 import { FunnelAnalytics, Analytics } from "../lib/types/analytics";
 // import { sendThankYouEmail } from "../lib/helpers/twillio";
 import { klavyioAPIRequests } from "../lib/helpers/requests";
-import { giveGiftCard } from "../lib/helpers/shopify";
+// import { giveGiftCard } from "../lib/helpers/shopify";
 // import { SubscriptionAgreement} from "../lib/types/products";
 // import { Fulfillment } from "../lib/types/fulfillments";
 
@@ -34,7 +34,6 @@ export const orderCreated = functions.firestore
         merchant_uuid,
         addresses,
         funnel_uuid,
-        tags
     } = order;
 
     let customer: Customer = {} as Customer;
@@ -166,12 +165,12 @@ export const orderCreated = functions.firestore
         if (customer) {    
             const first = customer?.first_name ? customer?.first_name : ""
             const last = customer?.last_name ? customer?.last_name : "";
-            const shopify_uuid = customer?.shopify_uuid ? customer?.shopify_uuid : "";
+            // const shopify_uuid = customer?.shopify_uuid ? customer?.shopify_uuid : "";
             
-            if (shopify_uuid !== "" && tags?.includes("CLICK_FUNNEL")) {
-                const response = await giveGiftCard(shopify_uuid)
-                console.log(response);    
-            };
+            // if (shopify_uuid !== "" && tags?.includes("CLICK_FUNNEL")) {
+            //     const response = await giveGiftCard(shopify_uuid)
+            //     console.log(response);    
+            // };
 
             functions.logger.info("❶ [GIFT CARD] - Creating Gift Card 💳");
             await createDocument(merchant_uuid, "gift_cards", "gif_", {

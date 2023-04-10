@@ -3,19 +3,8 @@ import * as crypto from "crypto";
 import { Merchant } from "../lib/types/merchants";
 // import { createAlgoDB } from "../routes/db";
 import { createAppSessions } from "../lib/helpers/firestore";
-import { decryptMsg } from "../lib/helpers/auth/auth";
-
-
-// import algoliasearch from "algoliasearch";
-
-// const algolia = algoliasearch(
-//     process.env.X_ALGOLGIA_APPLICATION_ID as string,
-//     process.env.X_ALGOLGIA_API_KEY as string,
-// );
-
-// const product_index = algolia.initIndex("prod_product_search_engine");
-// const blog_index = algolia.initIndex("prod_blog_search");
-
+import { decrypt } from "../lib/helpers/algorithms";
+import { createAlgoliaIndex } from "../lib/db";
 
 
 export const pmerchantCreated = functions.firestore
@@ -26,7 +15,7 @@ export const pmerchantCreated = functions.firestore
     let merchant: Merchant = snap.exists ? snap.data() as Merchant : {} as Merchant;
 
     try {
-        const storefront_api = merchant.api_key !== "" ? decryptMsg(merchant.api_key) : "ipat_" + crypto.randomBytes(10).toString('hex');
+        const storefront_api = merchant.api_key !== "" ? decrypt(merchant.api_key) : "ipat_" + crypto.randomBytes(10).toString('hex');
 
         await createAppSessions(
             storefront_api, 
@@ -35,6 +24,10 @@ export const pmerchantCreated = functions.firestore
                 host: merchant.host
             }
         );
+
+        const merchantId = merchant.id;
+        createAlgoliaIndex(merchantId,"merchants",merchant);
+
     } catch (error) {
         functions.logger.error(" 🚨 [ERROR]: creating sessions");
     }

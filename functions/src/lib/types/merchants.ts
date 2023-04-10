@@ -1,6 +1,7 @@
 export type CreateMerchant = {
     merchant: Merchant,
-    user: UserSummary
+    user: UserSummary,
+    token: string
 }
 
 export type Merchant = {
@@ -9,6 +10,11 @@ export type Merchant = {
     owner: UserSummary,
     sqaure: {
         UUID: string,
+        PM: string,
+    },
+    stripe: {
+        UUID: string,
+        secret: string,
         PM: string,
     },
     created_at: FirebaseFirestore.Timestamp;
@@ -30,5 +36,6 @@ export type User = {
     email: string,
     created_at: FirebaseFirestore.Timestamp;
     updated_at: FirebaseFirestore.Timestamp;
+    api_key: string;
 }
 

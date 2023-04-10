@@ -5,13 +5,17 @@ import * as sharp from "sharp";
 import * as crypto from "crypto";
 import { createDocument, deleteDocument, getCollections, getDocument, simlpeSearch, updateDocument } from "../lib/helpers/firestore";
 import { validateKey } from "./auth";
-import { createProduct, createProductPOD, fetchOrders } from "../lib/helpers/shopify";
+import { createProduct, createProductPOD, createShopifyCustomer, fetchOrders, shopifyRequest } from "../lib/helpers/shopify";
 // import { storage } from "../firebase";
 import fetch from "node-fetch";
 import { divinciRequests, shineOnAPIRequests } from "../lib/helpers/requests";
 import { createVariantsFromOptions } from "../lib/helpers/products/variants";
 import { Product } from "../lib/types/products";
+import { LineItem, Order } from "../lib/types/draft_rders";
 import { firestore } from "firebase-admin";
+import {convertCsvToJson} from "../lib/helpers/converters"
+import * as ip from 'ip';
+import { cartToOrderCSV } from "../lib/helpers/draft_orders/cartToOrder";
 
 type Design = {
     id: string,
@@ -104,6 +108,121 @@ type ShopifyOrder = {
     }
 }
 export const podRoutes = (app: express.Router) => {
+    app.post("/pod/cvstoorder", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(" ====> [POD ROUTE] - Started Design Upload ✅");
+        let status = 200,
+            text = "[SUCCESS]: Design successfully uploaded 👽",
+            ok = true,
+            result = [] as Order[];
+
+        const ip_address = ip.address();
+
+        let url = req.body.url as string; 
+        let merchant_uuid = req.body.merchant_uuid as string; 
+        let funnel_uuid = req.body.merchant_uuid as string; 
+
+        let order_list = [] as Order[];
+
+        result = await convertCsvToJson(url, funnel_uuid, merchant_uuid, ip_address);
+
+        if (result.length > 0) {
+            const fetchPromises = result
+                .sort((a, b) => {
+                    if (a.transaction_id === "" && b.transaction_id === "") {
+                    return 0;
+                    } else if (a.transaction_id === "") {
+                    return -1;
+                    } else if (b.transaction_id === "") {
+                    return 1;
+                    } else {
+                    return a.transaction_id.localeCompare(b.transaction_id);
+                    }
+                })
+                .map((order) =>{
+                    setTimeout(async () => {
+                        const shopify_customer = await createShopifyCustomer(order.addresses[0], order.email as string);
+
+                
+                        if (order.current_total_price > 100) {
+                            setTimeout(async () => {
+                                if (shopify_customer != undefined) {
+                                    const result = JSON.parse(JSON.stringify(shopify_customer));
+                    
+                                    if (result.customers[0] && result.customers[0].id != "") {
+                                        functions.logger.info(" [SHOPIFY] - Shopify uuid Created/Fetched");
+
+                                        //  Get Shopify ID if exiss. 
+                                        let shopif_uuid = result.customers[0].id;
+                                        console.log(shopif_uuid);
+
+                                        const has_sub = typeof(order.line_items[0].variant_id) == "number";
+
+                                        let shopify_line_items = order.line_items[0] ? order.line_items : [] as LineItem[];
+
+                                        if (has_sub) {
+
+                                            order_list
+                                                .forEach(o => {
+                                                    if (o.shopify_uuid === shopif_uuid) {
+                                                        shopify_line_items = [
+                                                            ...shopify_line_items,
+                                                            ...o.line_items
+                                                        ]
+                                                    }
+                                                })
+
+                                        } else {
+                                            order_list.push({...order, shopify_uuid: shopif_uuid});
+                                        }
+
+                                        shopify_line_items = await cartToOrderCSV(shopify_line_items);
+
+                                        // check if shopify id exist  in new order
+                                        const data = {
+                                            order: {
+                                                line_items: shopify_line_items,
+                                                currency: "USD",
+                                                financial_status: "paid",
+                                                customer:{
+                                                    id: shopif_uuid
+                                                },
+                                                tags: "IMPOWERED",
+                                                shipping_lines: [],
+                                                shipping_address:{
+                                                    name: (order.first_name ? order.first_name : "") + (order.last_name ? order.last_name : order.first_name && order.last_name  ? order.last_name : "null" ),
+                                                    address1: order.addresses[0]?.line1 ? order.addresses[0]?.line1 : "",
+                                                    phone:"",
+                                                    city: order.addresses[0]?.city ? order.addresses[0]?.city : "",
+                                                    province: order.addresses[0]?.state ? order.addresses[0]?.state : "",
+                                                    country: "US",
+                                                    zip:order.addresses[0]?.zip ? order.addresses[0]?.zip : "72704"
+                                                },
+                                            }
+                                        }
+                                        if (shopify_line_items.length > 0) {
+                                            setTimeout(async () => {
+                                                const order_result = await shopifyRequest( "orders.json", "POST", data);
+                                                console.log(" 🎉 [SHOPIFY] Order Sent to Shopify: ", {order_result});
+                                            }, 1500);
+                                        }
+                                    }
+                                }
+                            }, 1500);
+                        }
+                    }, 1500);
+                    
+
+                });
+            await Promise.all(fetchPromises);
+        }
+        
+        res.status(status).json({
+            ok: ok,
+            text: text,
+            result: result
+        })
+    });
+
     app.post("/pod/designs/upload", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ====> [POD ROUTE] - Started Design Upload ✅");
         let status = 200,
