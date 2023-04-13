@@ -1,7 +1,11 @@
 export type CreateMerchant = {
     merchant: Merchant,
-    user: UserSummary,
     token: string
+    id: string,
+    first_name: string,
+    last_name: string,
+    email: string,
+    user?: any
 }
 
 export type Merchant = {
@@ -21,6 +25,7 @@ export type Merchant = {
     updated_at: FirebaseFirestore.Timestamp;
     host: string
     api_key: string
+    ip_address: string
 }
 
 export type UserSummary = {

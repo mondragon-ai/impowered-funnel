@@ -5,6 +5,8 @@ import * as functions from "firebase-functions";
 import { generateAPIKey } from "../lib/helpers/auth/auth";
 import { createAppSessions, getSessionAccount, updateSessions } from "../lib/helpers/firestore";
 import { AppSession } from "../lib/types/Sessions";
+import { decrypt } from "../lib/helpers/algorithms";
+import { chargeMerchant } from "../lib/helpers/stripe";
 
 export const authRoutes = (app: express.Router) => {
 
@@ -26,8 +28,15 @@ export const authRoutes = (app: express.Router) => {
             usage: { time: Math.floor((new Date().getTime())), count: 0 },
             dev_api_key: "string",
             production: false,
+            is_charging: true,
+            is_valid: true,
+            billing: {
+                charge_monthly: 1400,
+                charge_rate: 0,
+                time: Math.floor(new Date().getTime())
+            },
             roles: ["STOREFRONT"]
-        };
+        } as AppSession;
 
         try {
             const response = await createAppSessions(API_KEY as string, sessions);
@@ -64,43 +73,94 @@ export const authRoutes = (app: express.Router) => {
 }
 
 export const validateKey = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    functions.logger.debug(" ✅ [SESSIONS] - Start Validation Route");
-    let text = " 🚨 [ERROR]: Likely oAuth problem problems. ", status= 401, account: AppSession | null = null;
-    let api_key = req.header('impowered-api-key') as string; 
-    functions.logger.debug(" ❶ [API KEY] " + api_key);
+    let text = " 🚨 [ERROR]: Likely oAuth problem problems. ",
+        status= 401;
 
-    try {
-        const key = xssFilters.inHTMLData(api_key)
-        const response = await getSessionAccount(key);
+    let cyrpted = req.header('impowered-api-key') as string; 
+    functions.logger.debug(" ✅ [SESSIONS] - Start Validation Route: " + cyrpted);
 
-        if (response.status < 300) {
-            functions.logger.debug(" 🏦 [SESSIONS FOUND]");
-            account = response.data;
-        } else {
-            text = text + response.text;
-            status = response.status;
-        }
-
-    } catch (e) {
-        status = 404;
-        text = text + " - cant find session document. Check API KEYS";
-    }
-
-    let update_session = {
-        ...account,
-    } as AppSession
+    // let api_key = "";
+    // let account: AppSession | null = null;
+    
+    const {account, api_key} = await getSessionAndAPI(cyrpted, text, status)
 
     let VALID = true;
 
+    let update_session = {
+        ...account
+    } as AppSession;
+
     if (account !== null) {
-
-
+        
             // Validate dev ? LOCALHOST && dev_key ? serve :: err
             if (account.api_key.includes("test_") && api_key !==  account.dev_api_key) {
-                functions.logger.debug(" ❶ Dev host & dev key dont match");
+                functions.logger.warn(" ❶ Dev host & dev key dont match");
                 VALID = false;
                 text = text + " - dev host & dev key dont match"
                 status = 400;
+            }
+
+            const billing_range = (account.billing.time) + (1000 * 60 * 60 * 24 * 30);
+
+            // Validate Usage w/ max of 999 / min
+            if (Math.floor((new Date().getTime())) >= billing_range) {
+                VALID = false;
+                text = text + " - Billing Is not Valid"
+                functions.logger.warn(text);
+
+                update_session =  {
+                    ...update_session,
+                    is_charging: true,
+                    updated_at: admin.firestore.Timestamp.now(),
+                    usage: {
+                        count: (update_session.usage?.count as number) + 1,
+                        time: update_session.usage?.time
+                    }
+                };
+
+                updateSessions(api_key,{
+                    ...update_session,
+                    is_charging: true,
+                    updated_at: admin.firestore.Timestamp.now(),
+                    usage: {
+                        count: (update_session.usage?.count as number) + 1,
+                        time: update_session.usage?.time
+                    }
+                });
+
+                if (!account.is_charging) {
+                    const response = await chargeMerchant(
+                        account.merchant_uuid,
+                        account.owner.email,
+                        (account.billing.charge_rate + account.billing.charge_monthly)
+                    );
+    
+                    if (response !== "") {
+                        update_session =  {
+                            ...update_session,
+                            is_charging: false,
+                            updated_at: admin.firestore.Timestamp.now(),
+                            billing: {
+                                charge_monthly: 0,
+                                charge_rate: 0,
+                                time:  Math.floor((new Date().getTime()))
+                            }
+                        };
+                    } else {
+                        VALID = false
+                        updateSessions(api_key,{
+                            ...update_session,
+                            is_charging: false,
+                            is_valid: false,
+                            updated_at: admin.firestore.Timestamp.now(),
+                        });
+                        text = text + `${text} - Merchant Needs To Pay`
+                        status = 405;
+                        functions.logger.warn(text);
+                    }
+                }
+            } else {
+                console.log("[BILLING] Date in seconds: ", billing_range, ".")
             }
 
             // Validate Host w/ Key ? LOCALHOST || {{ host }} 
@@ -119,21 +179,20 @@ export const validateKey = async (req: express.Request, res: express.Response, n
             //     } 
             // }
 
-
             if (api_key !==  account.api_key) {
-                functions.logger.debug(" ❶ wrong key / host match");
+                functions.logger.warn(" ❶ wrong key / host match");
                 VALID = false
                 text = text + `${text} - host & key do not match`
                 status = 400;
-            } 
+            };
 
             const session_range = (account.usage.time) + 5000;
 
-            // Validate Usage w/ max of 999 / min
+            // Validate Usage w/ max of 999 / 5 sec
             if (Math.floor((new Date().getTime())) < session_range) {
 
                 if (account.usage.count >= 999) {
-                    functions.logger.debug(" ❶ rate limit hit");
+                    functions.logger.warn(" ❶ rate limit hit");
                     text = text + " - rate limit hit.";
                     VALID = false;
                     status = 400;
@@ -150,10 +209,10 @@ export const validateKey = async (req: express.Request, res: express.Response, n
                 };
                 VALID = true;
                 status = 200;
-            }
+            };
 
-            if (VALID){
-                text = " 🎉 [SUCCESS]: Session validated 🔑. "
+            if (VALID && !update_session?.is_charging){
+                text = " 🎉 [SUCCESS]: Session validated 🔑";
                 status = 200;
                 await updateSessions(api_key, {
                     ...update_session,
@@ -166,14 +225,15 @@ export const validateKey = async (req: express.Request, res: express.Response, n
                 req.body = {
                     ...req.body,
                     merchant_uuid: account.merchant_uuid,
-                    roles: account.roles
+                    roles: account.roles,
+                    owner: account.owner
                 };
-                functions.logger.debug(text);
+                functions.logger.info(text);
                 return next();
             }
 
     } else {
-        functions.logger.debug("175: " + text);
+        functions.logger.error("" + text);
         status = 403;
         text = text ;
     }
@@ -183,4 +243,42 @@ export const validateKey = async (req: express.Request, res: express.Response, n
         text: text,
         data: VALID ? account : null
     })
+}
+
+export const getSessionAndAPI = async (
+    cyrpted: string,
+    text: string,
+    status: number
+) => {
+
+    // Decrypt token from header
+    let token = "";
+    let account: AppSession | null = null;
+
+    try {
+        token = cyrpted == "19uq99myrxd6jmp19k5mygo5d461l0" ? "19uq99myrxd6jmp19k5mygo5d461l0" : decrypt(cyrpted);
+    } catch (error) {
+        
+    }
+
+    let api_key: string = "";
+
+    try {
+        api_key = xssFilters.inHTMLData(token);
+        const response = await getSessionAccount(api_key);
+
+        if (response.status < 300) {
+            account = response.data;
+        } else {
+            text = text + response.text;
+            status = response.status;
+        }
+
+    } catch (e) {
+        status = 404;
+        text = text + " - cant find session document. Check API KEYS";
+    }
+
+    return {account, api_key}
+
 }

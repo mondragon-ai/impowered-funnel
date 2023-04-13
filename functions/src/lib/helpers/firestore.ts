@@ -89,6 +89,42 @@ export const createFunnelAnalytics = async (
 }
 
 
+export const updateSubcollection = async (
+    merchant_uuid: string,
+    doc_uuid: string,
+    colleciton: string,
+    sub_doc_uuid: string,
+    sub_colleciton: string,
+    data: any,
+) => {
+    // Data for validation in parent
+    let text = "[SUCCESS]: Document Created 👍🏻", status = 200, updated = true
+
+    try {
+        await db
+        .collection("merchants")
+        .doc(merchant_uuid)
+        .collection(colleciton)
+        .doc(doc_uuid)
+        .collection(sub_colleciton)
+        .doc(sub_doc_uuid)
+        .set({
+            ...data,
+        });
+    } catch {
+        text = " - Could not create document.";
+        status = 400;
+    }
+
+    // return either result 
+    return {
+        text: text,
+        status: status,
+        data: updated
+    }
+}
+
+
 export const updateFunnelAnalytics = async (
     merchant_uuid: string,
     doc_uuid: string,
@@ -184,6 +220,8 @@ export const updateMerchant = async (
 export const createAppSessions = async (
     api_key: string,
     data: any,
+    test_api_key?: string,
+    roles?: string[],
 ) => {
     // Data for validation in parent
     let text = " ✅ [SUCCESS]: Document Created 👍🏻", status = 200;
@@ -200,15 +238,22 @@ export const createAppSessions = async (
             updated_at: admin.firestore.Timestamp.now(),
             api_key: api_key,
             usage: { time: Math.floor((new Date().getTime())), count: 0 },
-            dev_api_key: "string",
-            production: false,
-            roles: ["STOREFRONT"],
+            dev_api_key: test_api_key ? test_api_key : "",
+            production: true,
+            is_charging: true,
+            is_valid: true,
+            billing: {
+                charge_monthly: 1400,
+                charge_rate: 0,
+                time: Math.floor(new Date().getTime())
+            },
+            roles: roles && roles?.length > 0 ? roles : ["STOREFRONT"],
             id: api_key
         });
     } catch {
         text = " 🚨 [DB] Could not create session document.";
         status = 400;
-        functions.logger.error(text)
+        functions.logger.error(text);
     }
 
     // return either result 
