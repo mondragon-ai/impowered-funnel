@@ -694,7 +694,7 @@ export const podRoutes = (app: express.Router) => {
                             d
                         ]
                     })
-                }
+                };
             }
 
         } catch (e) {

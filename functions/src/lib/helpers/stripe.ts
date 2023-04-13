@@ -449,7 +449,7 @@ export const createMerchantAccount = async (merchantId: string, merchantEmail: s
   try {
     // Create an account for the merchant
     const account = await stripe.accounts.create({
-      type: 'imPowered',
+      type: 'custom',
       email: merchantEmail,
       country: 'US', // Set the country based on the merchant's location
       capabilities: {
@@ -478,34 +478,64 @@ export const createMerchantAccount = async (merchantId: string, merchantEmail: s
 };
 
 // Charge a customer using the merchant's account
-export const chargeCustomer = async (merchantId: string, customerId: string, amount: number, description: string) => {
+export const chargeMerchant = async (
+  merchantId: string,
+  email: string,
+  amount: number,
+) => {
+
+  let merchant: Merchant | null = null;
+
   try {
-    // Get the merchant's account ID from your Firestore database
-    const merchantDoc = await getMerchant(merchantId);
-    const stripeAccountId =  merchantDoc.data && merchantDoc.data.stripe && merchantDoc.data.stripe.UUID  ? merchantDoc.data.stripe.UUID  : ""
+    const response = await getMerchant(merchantId);
 
-    // Create a payment intent on the merchant's account
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount,
-      currency: 'usd',
-      payment_method_types: ['card'],
-      application_fee_amount: Math.round(amount * 0.1), // 10% fee on each transaction
-      description: description,
-      transfer_data: {
-        destination: stripeAccountId,
-      },
-      metadata: {
-        merchant_id: merchantId,
-        customer_id: customerId,
-      },
-    });
-
-    // Return the payment intent client secret to the frontend
-    return paymentIntent.client_secret;
+    if (response.status < 300 && response.data) {
+      merchant = response.data as Merchant;
+    }
   } catch (error) {
-    console.error(error);
-    throw new Error('Failed to charge customer');
+    
   }
+
+  const STRIPE_UUID = merchant?.stripe ? merchant.stripe.UUID : "";
+  const STRIPE_PM = merchant?.stripe ? merchant.stripe.PM : "";
+
+  let STRIPE_PI = "";
+
+  let price = Number(amount) && Number(amount) > 0 ? Number(amount) : 0;
+
+  async function createIntent() {
+    return new Promise( (resolve) => {
+      return setTimeout(async () => {
+
+        try {
+      
+          // * Make the initial Stripe charge based on product price
+          const paymentIntent = await stripe.paymentIntents.create({
+            amount: price,
+            currency: 'USD',
+            customer: STRIPE_UUID,
+            payment_method: STRIPE_PM,
+            off_session: true,
+            confirm: true,
+            receipt_email: email, 
+          });
+          functions.logger.info(" ❷ [PAYMENT_INTENTION] -> "  + paymentIntent.id);
+    
+          STRIPE_PI = paymentIntent.id ? paymentIntent.id : "";
+          functions.logger.info(STRIPE_PI);
+          
+        } catch (e) {
+            functions.logger.info(" 🚨 [ERROR]" + " ❷ Could not charge customer" );
+        }
+
+        return resolve(STRIPE_PI as string);
+      }, 500);
+    });
+  };
+
+  await createIntent();
+  
+  return STRIPE_PI;
 };
 
 // Schedule a payout to the merchant's account
