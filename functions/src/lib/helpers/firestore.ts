@@ -823,7 +823,7 @@ export const searchMerchants = async (
     .get()
 
     if (result.empty) {
-        text = " ✅ [MERCHANTS] -  Merchant Doesnt exist";
+        text = " 🚨 [MERCHANTS] -  Merchant Doesnt exist";
         functions.logger.error(text);
         status = 420;
         result = null;

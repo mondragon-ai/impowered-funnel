@@ -9,7 +9,7 @@ import { DraftOrder, LineItem, Order } from "../types/draft_rders";
 import { Merchant } from "../types/merchants";
 // import { getToday } from "./date";
 import { handleSuccessPayment } from "./draft_orders/funnel_create";
-import { getMerchant, updateDocument, updateMerchant } from "./firestore";
+import { getMerchant, updateDocument } from "./firestore";
 import { shopifyRequest } from "./shopify";
 
 /**
@@ -27,7 +27,7 @@ import { shopifyRequest } from "./shopify";
 
       // Craete Stripe customer
       const stripeCustomer = await stripe.customers.create({
-          description: "CUSTOM CLICK FUNNEL",
+          description: "imPowered",
           email: (email ? email : ""),
           name: (first_name ? first_name : "") + " " + (last_name ? last_name : "") 
       });
@@ -444,47 +444,47 @@ export const createSubscription = async (STRIPE_UUID: string, STRIPE_PM: string)
 };
 
 
-// Create a unique account for the merchant
-export const createMerchantAccount = async (merchantId: string, merchantEmail: string) => {
-  try {
-    // Create an account for the merchant
-    const account = await stripe.accounts.create({
-      type: 'custom',
-      email: merchantEmail,
-      country: 'US', // Set the country based on the merchant's location
-      capabilities: {
-        card_payments: {
-          requested: true,
-        },
-        transfers: {
-          requested: true,
-        },
-      },
-      metadata: {
-        merchant_id: merchantId,
-      },
-    });
+// // Create a unique account for the merchant
+// export const createMerchantAccount = async (merchantId: string, merchantEmail: string) => {
+//   try {
+//     // Create an account for the merchant
+//     const account = await stripe.accounts.create({
+//       type: 'custom',
+//       email: merchantEmail,
+//       country: 'US', // Set the country based on the merchant's location
+//       capabilities: {
+//         card_payments: {
+//           requested: true,
+//         },
+//         transfers: {
+//           requested: true,
+//         },
+//       },
+//       metadata: {
+//         merchant_id: merchantId,
+//       },
+//     });
 
-    await updateMerchant(merchantId,{
-      stripe_account_id: account.id,
-    })
+//     await updateMerchant(merchantId,{
+//       stripe_account_id: account.id,
+//     })
 
-    // Return the account ID to the frontend
-    return account.id;
-  } catch (error) {
-    console.error(error);
-    throw new Error('Failed to create merchant account');
-  }
-};
+//     // Return the account ID to the frontend
+//     return account.id;
+//   } catch (error) {
+//     console.error(error);
+//     throw new Error('Failed to create merchant account');
+//   }
+// };
 
 // Charge a customer using the merchant's account
 export const chargeMerchant = async (
   merchantId: string,
-  email: string,
   amount: number,
 ) => {
 
   let merchant: Merchant | null = null;
+  console.log(merchantId);
 
   try {
     const response = await getMerchant(merchantId);
@@ -497,11 +497,45 @@ export const chargeMerchant = async (
   }
 
   const STRIPE_UUID = merchant?.stripe ? merchant.stripe.UUID : "";
-  const STRIPE_PM = merchant?.stripe ? merchant.stripe.PM : "";
+  let STRIPE_PM = merchant?.stripe.PM ? merchant.stripe.PM : "";
+  const email = merchant?.owner ? merchant.owner.email : ""; 
 
   let STRIPE_PI = "";
 
   let price = Number(amount) && Number(amount) > 0 ? Number(amount) : 0;
+  console.log(STRIPE_UUID);
+  console.log(STRIPE_PM);
+
+  if (STRIPE_PM === "") {
+    console.log("[STRIPE_PM]: === ''");
+
+    async function getMethod() {
+      return new Promise( (resolve) => {
+        return setTimeout(async () => {
+  
+          functions.logger.info(" ===> [PAYMENT_METHOD]");
+
+          try {
+            // * Get payment Method
+            const paymentMethods = await stripe.paymentMethods.list({
+              customer: STRIPE_UUID,
+              type: "card"
+            });
+            console.error(paymentMethods);
+      
+            STRIPE_PM = paymentMethods.data[0].id ? paymentMethods.data[0].id : "";
+            functions.logger.info(STRIPE_PM);
+                
+          } catch (e) {
+            functions.logger.info(" ===> 🚨 [ERROR]: " + " - GETTING PM for customer - stripe 198");
+          }
+          return resolve(STRIPE_PM as string);
+        }, 3000);
+      });
+    }
+  
+    await getMethod()
+  }
 
   async function createIntent() {
     return new Promise( (resolve) => {
@@ -529,13 +563,13 @@ export const chargeMerchant = async (
         }
 
         return resolve(STRIPE_PI as string);
-      }, 500);
+      }, 1000);
     });
   };
 
   await createIntent();
   
-  return STRIPE_PI;
+  return {merchant, STRIPE_PI, STRIPE_PM};
 };
 
 // Schedule a payout to the merchant's account

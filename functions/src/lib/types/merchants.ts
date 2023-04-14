@@ -7,6 +7,11 @@ export type CreateMerchant = {
     email: string,
     user?: any
 }
+export type SendSecret = {
+    merchant_uuid: string,
+    token: string,
+    amount: number
+}
 
 export type Merchant = {
     id: string,
@@ -26,6 +31,12 @@ export type Merchant = {
     host: string
     api_key: string
     ip_address: string
+    payment_history: {
+        date: FirebaseFirestore.Timestamp;
+        amount: number,
+        email: string,
+        id: string
+    }[]
 }
 
 export type UserSummary = {

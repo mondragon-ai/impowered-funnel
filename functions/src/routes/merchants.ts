@@ -69,6 +69,7 @@ export const merchantRoutes = (app: express.Router) => {
             }
         });
     });
+    
     // Fetch products using imPowered API_KEY
     app.post("/merchants/invite/user", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(' ✅ [MERCHANTS] - Create User for Merchant');
@@ -125,8 +126,8 @@ export const merchantRoutes = (app: express.Router) => {
     
         // Fetch the merchants based on shop name || uid
         const { status, text, result, size } = await fetchMerchant(
-            merchant_uuid,
-            merchant_shop
+            merchant_shop || "",
+            merchant_uuid || ""
         );
     
         // Return the response

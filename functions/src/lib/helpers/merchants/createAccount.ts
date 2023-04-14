@@ -3,7 +3,7 @@ import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import { createDocumentWthId, createMerchant} from "../firestore";
 import * as ip from 'ip';
-import { encrypt } from "../../../lib/helpers/algorithms";
+import { encryptToken } from "../../../lib/helpers/algorithms";
 import {
     Merchant,
     User
@@ -28,10 +28,13 @@ export const createUserAndMerchant = async (
 
     // API Key 
     let storefront_api = token && token !== "" ? token : "ipat_" + crypto.randomBytes(10).toString('hex');
+    console.log(merchant_uuid);
+    console.log(storefront_api);
+
 
     try {
-        merchant_uuid_enc =  encrypt(merchant_uuid);
-        storefront_api =  encrypt(storefront_api);
+        merchant_uuid_enc =  encryptToken(merchant_uuid);
+        storefront_api =  encryptToken(storefront_api);
     } catch (error) {
         throw new Error(" 🚨 [ERROR] Coudlnt encrypt");
     }

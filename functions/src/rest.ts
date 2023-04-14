@@ -25,6 +25,7 @@ import { botRoutes } from "./routes/bot";
 import { shopifyOrderCreatedWebHook } from "./webhooks/shopifyOrders";
 import { merchantRoutes } from "./routes/merchants";
 import { usersRoutes } from "./routes/users";
+import { billingRoutes } from "./routes/billing";
 
 
 export const rest = (db: FirebaseFirestore.Firestore) => {
@@ -94,13 +95,19 @@ export const rest = (db: FirebaseFirestore.Firestore) => {
 
     // Bot Routes
     botRoutes(app)
-    
-    shopifyOrderCreatedWebHook(app)
 
+    // Merchant CRUD routes + settings
     merchantRoutes(app);
 
-    
+    // Billing Mercahnts Routes
+    billingRoutes(app);
+
+    // Merchant Users
     usersRoutes(app);
+    
+    // Web Hook for 3rd party apps
+    // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    shopifyOrderCreatedWebHook(app)
 
     return app
 }

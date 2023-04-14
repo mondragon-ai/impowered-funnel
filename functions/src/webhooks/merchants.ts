@@ -3,9 +3,9 @@ import * as crypto from "crypto";
 import * as admin from "firebase-admin";
 import { Merchant } from "../lib/types/merchants";
 // import { createAlgoDB } from "../routes/db";
-import { createAppSessions, updateDocument } from "../lib/helpers/firestore";
-import { decrypt, encrypt } from "../lib/helpers/algorithms";
-import { createMerchantAccount } from "../lib/helpers/stripe";
+import { createAppSessions, updateDocument, updateMerchant } from "../lib/helpers/firestore";
+import { decryptToken, encryptToken } from "../lib/helpers/algorithms";
+import { createStripeCustomer } from "../lib/helpers/stripe";
 import { getToday } from "../lib/helpers/date";
 
 
@@ -20,7 +20,7 @@ export const merchantCreated = functions.firestore
 
     // Get merchant & Deconstruct
     let merchant: Merchant = snap.exists ? snap.data() as Merchant : {} as Merchant;
-    const { api_key, id, ip_address, owner } = merchant;
+    const { api_key, id, ip_address, owner, stripe } = merchant;
 
     // set vars
     let token = "";
@@ -30,9 +30,11 @@ export const merchantCreated = functions.firestore
 
     try {
         // use algos for enctrption
-        token = decrypt(api_key ? api_key : "");
-        merchant_uuid = encrypt(merchantId ? merchantId : "");
+        token = decryptToken((api_key ? api_key : "") as string);
+        merchant_uuid = encryptToken(merchantId ? merchantId : "");
     } catch (error) { };
+
+    console.log("DECRYPTED_TOKEN: ", token);
 
     // Token new api key (store scope) 
     const new_ipat = "ipat_" + crypto.randomBytes(10).toString('hex');
@@ -40,6 +42,7 @@ export const merchantCreated = functions.firestore
     try {
         // Set token
         const storefront_api = token !== "" ? token : new_ipat;
+        console.log("STOREFRONT_API: ", storefront_api);
 
         // create new session (for owner)
         await createAppSessions(
@@ -54,18 +57,57 @@ export const merchantCreated = functions.firestore
         );
 
         // Stripe Charge
-        await createMerchantAccount(merchantId, owner.email as string);
+        // await createMerchantAccount(merchantId, owner.email as string);
 
+        // Log Date 
         const log_id = today.toString();
 
-        // Update Merchant 
-        await updateDocument(merchantId, "logs", log_id, {
-            updated_at: admin.firestore.Timestamp.now(),
-            account: owner.email ? owner.email : "",
-            created_at: admin.firestore.Timestamp.now(),
-            description: "Merchant store created by " + (owner.first_name ? owner.first_name : "") + ""
-        });
-        functions.logger.info(" [MERCHANT]: UPDATED MERCHANT ACCOUT");
+        // Create Stripe Customer && Secret for Merchant (to be charged later)
+        const stripe_response = await createStripeCustomer(
+            (owner.email ? owner.email : ""),
+            (owner.first_name ? owner.first_name : ""),
+            (owner.last_name ? owner.last_name : "")
+        );
+        functions.logger.info(" [STRIPE]: ", {stripe_response});
+
+
+        // handle response
+        if (stripe_response.status < 300 && stripe_response.data) {
+            // Update Merchant 
+            await updateMerchant(merchantId, {
+                updated_at: admin.firestore.Timestamp.now(),
+                stripe: {
+                    ...stripe,
+                    secret: stripe_response.data.stripe_client_secret ? stripe_response.data.stripe_client_secret : "",
+                    UUID: stripe_response.data.stripe_uuid ? stripe_response.data.stripe_uuid : "",
+                }
+            } as Merchant);
+
+
+            // Create Merchant Log Entry
+            await updateDocument(merchantId, "logs", log_id, {
+                updated_at: admin.firestore.Timestamp.now(),
+                account: owner.email ? owner.email : "",
+                created_at: admin.firestore.Timestamp.now(),
+                description: "Merchant store created by " + 
+                    (owner.first_name ? owner.first_name : "") + 
+                    ". The Merchant Account is ready to be charged."
+            });
+            functions.logger.info(" [MERCHANT]: Created Logs & Updated");
+
+        } else {
+            // Create Merchant Log Entry
+            await updateDocument(merchantId, "logs", log_id, {
+                updated_at: admin.firestore.Timestamp.now(),
+                account: owner.email ? owner.email : "",
+                created_at: admin.firestore.Timestamp.now(),
+                description: "Merchant store created by " + 
+                    (owner.first_name ? owner.first_name : "") + "." + 
+                    " 🚨 The Merchant Account has a Stripe error. Check Logs. "
+            });
+            functions.logger.info(" [MERCHANT]: Created Logs & Updated");
+        }
+
 
     } catch (error) {
         functions.logger.error(" 🚨 [ERROR]: creating sessions");

@@ -11,7 +11,7 @@ export const productsCreated = functions.firestore
 
     if (product !== null) {
         functions.logger.info(" ⏭️ [START] - Push Algolia");
-        await updateAlgoliaFn(product, "products");
+        await updateAlgoliaFn(product.merchant_uuid+"_"+"blog_search",product, "products");
 
     } else {
         functions.logger.error(" 🚨 [ERROR]: Internal error - customer doesn't exist");
@@ -28,7 +28,7 @@ export const productsUpdated = functions.firestore
 
     if (product !== null) {
         functions.logger.info(" ⏭️ [START] - Push Algolia");
-        await updateAlgoliaFn(product, "products");
+        await updateAlgoliaFn(product.merchant_uuid+"_"+"blog_search", product, "products");
 
     } else {
         functions.logger.error(" 🚨 [ERROR]: Internal error - customer doesn't exist");

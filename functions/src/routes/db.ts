@@ -219,7 +219,32 @@ export const createAlgoDB = async (
 }
 
 
+export const deleteAlgoliaFn = async (
+    index: string,
+    objectID: string,
+) => {
+
+
+    const algolia_index = index !== "" ? index : "prod_blog_search"
+
+    const blog_algolia = algolia.initIndex(algolia_index);
+
+    // Push to Algolia index
+    try {
+        if (index && objectID ) {
+            functions.logger.debug(" => Data ready to delete from algolia");
+            await blog_algolia.deleteObject(objectID);
+        }
+    } catch (e) {
+        let text = " 🚨 [ERROR]: Likely a problem uploading / syncing primary db with angolia. Check logs";
+        functions.logger.error(text);
+    }
+
+    return
+}
+
 export const updateAlgoliaFn = async (
+    index: string,
     update_object: any,
     collection: string,
 ) => {
@@ -228,27 +253,31 @@ export const updateAlgoliaFn = async (
 
     let push_data: {}[] = [];
 
+    const algolia_index = index !== "" ? index : "prod_blog_search"
+
+    const algolia_db_index = algolia.initIndex(algolia_index);
+
     // Push to Algolia index
     try {
-        if (update_object && collection == "blogs") {
+        if (update_object && index !== "") {
             functions.logger.debug(" => Blogs Ready to Sync");
             // If data is returned successfully sync
             push_data.push({...update_object, objectID: update_object?.id })
 
             if (push_data.length > 0) {
                 functions.logger.debug(" => Data ready to sync to algolia");
-                await blog_index.saveObjects(push_data);
+                await algolia_db_index.saveObjects(push_data);
             }
         }
         
-        if (update_object && collection == "products") {
+        if (update_object  && index !== "") {
             functions.logger.debug(" => Products Ready to Sync");
             // If data is returned successfully sync
             push_data.push({...update_object, objectID: update_object?.id })
 
             if (push_data.length > 0) {
                 functions.logger.debug(" => Data ready to sync to algolia");
-                await product_index.saveObjects(push_data);
+                await algolia_db_index.saveObjects(push_data);
 
             }
         }

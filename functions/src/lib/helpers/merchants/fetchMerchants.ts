@@ -12,11 +12,11 @@ export const fetchMerchant = async (
     result: Merchant[] = [],
     size = 0;
 
-    console.log(merchant_shop);
-    console.log(merchant_uuid);
+    console.log("merchant_shop: ", merchant_shop);
+    console.log("merchant_uuid: ", merchant_uuid);
 
     try {
-        if (merchant_shop !== '' && merchant_uuid == "") {
+        if (merchant_shop !== '') {
             // Get all products if product_uuid is not provided
             const response = await searchMerchants("shop", merchant_shop.toLocaleLowerCase());
             console.log(response)
