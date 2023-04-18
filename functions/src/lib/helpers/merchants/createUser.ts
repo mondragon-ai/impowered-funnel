@@ -1,7 +1,7 @@
 import * as crypto from "crypto";
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
-import { createMerchantUser, simlpeSearch } from "../firestore";
+import { simlpeSearch, updateDocument } from "../firestore";
 import {
     Merchant,
     User
@@ -15,13 +15,14 @@ export const createUser = async (
     user: User,
 ) => {
     // 
-    let text = ' 🎉 [SUCCESS]: User created for Merchant';
-    let status = 200;
+    let text = " 🚨 [ERROR]: Customer does not have access to this Merchant Account";
+    let status = 403;
     let result: Merchant[] = [];
 
     let user_uuid = "use_" + crypto.randomBytes(10).toString("hex");
     let storefront_api = token && token !== "" ? token : "ipat_" + crypto.randomBytes(10).toString("hex");
     let isValid = false;
+
 
     try {
         if (merchant_uuid !== "" && user) {
@@ -36,11 +37,18 @@ export const createUser = async (
                 if (merchants && merchants?.size > 0) {
                     merchants.forEach(mer => {
                         if (mer.exists) {
-                            isValid = true;
-                        }
-                    })
-                }
-            };
+                            user_uuid = user_uuid;
+                            isValid = false;
+                            text = ' 🎉 [SUCCESS]: User already exists for Merchant Account';
+                            status = 422;
+                        } 
+                    });
+                } 
+            } else {
+                isValid = true;
+                text = ' 🎉 [SUCCESS]: User created Merchant Account';
+                status = 200;
+            };;
         } 
     } catch (error) {
         // Log the error and return a server error response
@@ -54,7 +62,7 @@ export const createUser = async (
         if (merchant_uuid !== "" && user && isValid) {
             console.log(merchant_uuid);
             // Get all products if product_uuid is not provided
-            const response = await createMerchantUser(merchant_uuid, user_uuid, {
+            const response = await updateDocument(merchant_uuid, "users", user_uuid, {
                 ...user,
                 auth_uuid: user_uuid,
                 updated_at: today,
@@ -64,14 +72,14 @@ export const createUser = async (
             
             console.log(response);
             if (response.status < 300 && response.data) {
-                const search_result = response.data.merchant;
+                const search_result = response.data;
                 console.log(search_result)
             };
         } 
     } catch (error) {
         // Log the error and return a server error response
         status = 500;
-        text = " 🚨 [ERROR]: Could not fetch merchant" ;
+        text = " 🚨 [ERROR]: Could not update merchant account" ;
         functions.logger.error(text);
         result = [];
     }

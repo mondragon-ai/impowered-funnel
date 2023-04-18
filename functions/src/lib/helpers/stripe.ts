@@ -7,6 +7,7 @@ import { Customer } from "../types/customers";
 // import { DailyFunnel } from "../types/analytics";
 import { DraftOrder, LineItem, Order } from "../types/draft_rders";
 import { Merchant } from "../types/merchants";
+import { decryptToken } from "./algorithms";
 // import { getToday } from "./date";
 import { handleSuccessPayment } from "./draft_orders/funnel_create";
 import { getMerchant, updateDocument } from "./firestore";
@@ -535,12 +536,20 @@ export const chargeMerchant = async (
     }
   
     await getMethod()
+  } else {
+
+    try {
+      STRIPE_PM = decryptToken(STRIPE_PM);
+    } catch (error) {
+        
+    }
   }
 
   async function createIntent() {
     return new Promise( (resolve) => {
       return setTimeout(async () => {
 
+        console.log(STRIPE_PM)
         try {
       
           // * Make the initial Stripe charge based on product price

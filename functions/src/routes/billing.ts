@@ -5,7 +5,6 @@ import {
 } from "../lib/types/merchants";
 import { sendMerchantSecret } from "../lib/helpers/merchants/sendSecret";
 import { validateKey } from "./auth";
-import { decryptToken } from "../lib/helpers/algorithms";
 import { chargeMerchantStripe } from "../lib/helpers/merchants/chargeMerchant";
 
 /**
@@ -21,18 +20,10 @@ export const billingRoutes = (app: express.Router) => {
         let {
             merchant_uuid,
         }: SendSecret = req.body;
-
-        let decrypted_token = "";
-
-        try {
-            decrypted_token = decryptToken(merchant_uuid);
-        } catch (error) {
-            
-        }
-
+        
         // Create merchant & own User 
         const {secret, status} = await sendMerchantSecret(
-            decrypted_token,
+            merchant_uuid,
         );
 
         // Create merchant & own User 
@@ -51,15 +42,7 @@ export const billingRoutes = (app: express.Router) => {
             amount,
         }: SendSecret = req.body;
 
-        let decrypted_token = "";
-
-        try {
-            decrypted_token = decryptToken(merchant_uuid);
-        } catch (error) {
-            
-        }
-
-        const transaction_id = await chargeMerchantStripe(decrypted_token,amount);
+        const transaction_id = await chargeMerchantStripe(merchant_uuid,amount);
 
         // Create merchant & own User 
         res.status(transaction_id.status).json({

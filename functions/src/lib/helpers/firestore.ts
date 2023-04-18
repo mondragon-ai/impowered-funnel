@@ -210,6 +210,39 @@ export const updateMerchant = async (
     }
 }
 
+
+/**
+ * Create Charge Docuemnt from Merchants 
+ * @param doc_id: string
+ * @param data; any
+ * @returns 
+ */
+export const createChargeDocument = async (
+    doc_id: string,
+    data: any,
+) => {
+    // Data for validation in parent
+    let text = "[SUCCESS]: Document Created 👍🏻", status = 200, updated = true;
+
+    try {
+        await db
+        .collection("charges")
+        .doc(doc_id)
+        .set(data, { merge: true });
+    } catch {
+        text = " - Could not update document.";
+        status = 400;
+        updated = false;
+    }
+
+    // return either result 
+    return {
+        text: text,
+        status: status,
+        data: updated
+    }
+}
+
 /**
  * Create app sesion in primary DB 
  * TODO: create layer db with C/C++ 

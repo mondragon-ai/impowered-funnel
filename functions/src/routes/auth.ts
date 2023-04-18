@@ -6,7 +6,7 @@ import { generateAPIKey } from "../lib/helpers/auth/auth";
 import { createAppSessions, getSessionAccount, updateSessions } from "../lib/helpers/firestore";
 import { AppSession } from "../lib/types/Sessions";
 import { decryptToken } from "../lib/helpers/algorithms";
-import { chargeMerchant } from "../lib/helpers/stripe";
+import { chargeMerchantStripe } from "../lib/helpers/merchants/chargeMerchant";
 
 export const authRoutes = (app: express.Router) => {
 
@@ -265,65 +265,55 @@ export const authRoutes = (app: express.Router) => {
 // }
 
 
-export const validateKey = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    let text = "🚨 [ERROR]: Likely oAuth problem problems.",
-        status = 401,
-        account: AppSession | null = null;
-
-    let encrypted = req.header('impowered-api-key') as string;
-    functions.logger.debug("✅ [SESSIONS] - Start Validation Route: " + encrypted);
-
-    let token = "";
-    let decrypted_token = "";
-
+const getToken = (encrypted: string): string => {
     try {
-        decrypted_token = decryptToken(encrypted);
+        return encrypted === "19uq99myrxd6jmp19k5mygo5d461l0" ? encrypted : decryptToken(encrypted);
+    } catch (error) {
+        return "";
+    }
+};
+
+export const validateKey = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    let text = "🚨 [ERROR]: Likely oAuth problem problems.";
+    let status = 401;
+    const encrypted = req.header('impowered-api-key') as string;
+    const token = getToken(encrypted);
+    const api_key = xssFilters.inHTMLData(token);
+    const response = await getSessionAccount(api_key);
+
+    console.log(encrypted);
+    console.log(token);
+    console.log(api_key);
+    console.log(response);
+    let account: AppSession | null = null
+    if (response.status < 300) {
+        account = response.data;
+    } else {
+        text = text + response.text;
+        status = response.status;
+    }
+    let decrypted_merchant = "";
+
+    console.log(account);
+    console.log(decrypted_merchant);
+    try {
+        decrypted_merchant = decryptToken(account?.merchant_uuid as string);
     } catch (error) { }
 
-    token = encrypted == "19uq99myrxd6jmp19k5mygo5d461l0" ? "19uq99myrxd6jmp19k5mygo5d461l0" : (decrypted_token ? decrypted_token : "");
-
-    let api_key = "";
-
-    try {
-        api_key = xssFilters.inHTMLData(token);
-        const response = await getSessionAccount(api_key);
-
-        if (response.status < 300) {
-            account = response.data;
-        } else {
-            text = text + response.text;
-            status = response.status;
-        }
-
-    } catch (e) {
-        status = 404;
-        text = text + " - can't find session document. Check API KEYS";
-    }
-
-    let update_session = {
-        ...account,
-    } as AppSession;
-    let VALID = true;
-
     if (account !== null) {
-        VALID = await validateAccount(account, update_session, api_key, text, status);
-        console.log(VALID);
+        const {isValid, update_session} = await validateAccount(account, account, api_key, text, status);
 
-        if (VALID && !account.is_charging) {
+        if (isValid && !account.is_charging) {
             text = "🎉 [SUCCESS]: Session validated 🔑. ";
             status = 200;
-            console.log(text);
             await updateSessions(api_key, {
                 ...update_session,
                 updated_at: admin.firestore.Timestamp.now(),
-                usage: {
-                    count: (update_session.usage?.count as number) + 1,
-                    time: update_session.usage?.time
-                }
             });
             req.body = {
                 ...req.body,
-                merchant_uuid: account.merchant_uuid,
+                merchant_uuid: decrypted_merchant,
+                token: encrypted,
                 roles: account.roles,
                 owner: account.owner
             };
@@ -339,7 +329,7 @@ export const validateKey = async (req: express.Request, res: express.Response, n
 
     return res.status(status).send({
         text: text,
-        data: VALID ? account : null
+        data: status < 300 ? account : null
     });
 }
 
@@ -349,10 +339,8 @@ export const validateAccount = async (
     api_key: string,
     text: string,
     status: number
-): Promise<boolean> => {
+): Promise<{isValid: boolean, update_session: AppSession}> => {
     let VALID = true;
-
-
 
     let decrypted_merchant = "";
 
@@ -389,20 +377,21 @@ export const validateAccount = async (
 
         // If not charging Charge
         if (!account.is_charging) {
-            const response = await chargeMerchant(
+            const response = await chargeMerchantStripe(
                 decrypted_merchant,
                 (account.billing.charge_rate + account.billing.charge_monthly)
             );
 
 
             // If Successfull prep session and continue session
-            if (response.STRIPE_PI !== "") {
+            if (response.STRIPE_PI_ID !== "") {
                 update_session =  {
                     ...update_session,
-                    is_charging: true,
+                    is_charging: false,
+                    is_valid: true,
                     updated_at: admin.firestore.Timestamp.now(),
                     billing: {
-                        charge_monthly: 0,
+                        charge_monthly: 1400,
                         charge_rate: 0,
                         time:  Math.floor((new Date().getTime()))
                     }
@@ -454,7 +443,7 @@ export const validateAccount = async (
 
     // Validate Usage w/ max of 999 / min
     if (Math.floor((new Date().getTime())) < session_range) {
-    functions.logger.info("NO LIMIT REACHED: ", session_range);
+        functions.logger.info("LIMIT REACHED: ", session_range);
 
         if (account.usage.count >= 999) {
             functions.logger.warn(" ❶ rate limit hit");
@@ -463,7 +452,7 @@ export const validateAccount = async (
             status = 400;
         }
     } else {
-
+        functions.logger.info("NO LIMIT REACHED: ", session_range);
         update_session =  {
             ...update_session,
             updated_at: admin.firestore.Timestamp.now(),
@@ -479,5 +468,5 @@ export const validateAccount = async (
         functions.logger.warn(text);
     }
 
-    return VALID;
+    return {isValid: VALID, update_session};
 }

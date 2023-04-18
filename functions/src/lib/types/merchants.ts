@@ -5,7 +5,8 @@ export type CreateMerchant = {
     first_name: string,
     last_name: string,
     email: string,
-    user?: any
+    user?: UserSummary
+    merchant_uuid?: string
 }
 export type SendSecret = {
     merchant_uuid: string,

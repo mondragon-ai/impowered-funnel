@@ -5,12 +5,13 @@ import { createDocument, getCollections, getDocument } from "../lib/helpers/fire
 import { validateKey } from "./auth";
 import { SubscriptionAgreement } from "../lib/types/products";
 import { UserSummary } from "../lib/types/merchants";
+import { signInMerchant } from "../lib/helpers/merchants/signInUser";
 
 export const usersRoutes = (app: express.Router) => {
     app.post("/users/create", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug("[USER]: Create User");
-        let status = 200,
-            text = " 🎉 [SUCCESS]: User document succesffully created",
+        let s = 200,
+            t = " 🎉 [SUCCESS]: User document succesffully created",
             result = "",
             ok = true;
 
@@ -21,27 +22,35 @@ export const usersRoutes = (app: express.Router) => {
         let user: UserSummary = req.body.user;
 
         try {
-            // create user docuemnt 
-            const response = await createDocument(merchant_uuid,"users","cus_",{
-                ...user,
-                updated_at: admin.firestore.Timestamp.now(),
-                created_at: admin.firestore.Timestamp.now(),
-            });
+            const {text, status, isValid} = await signInMerchant(merchant_uuid, user);
 
-            if (response.status < 300 && response.data) {
-                result = response.data.id
+            if (isValid) {
+                // create user docuemnt 
+                const response = await createDocument(merchant_uuid,"users","use_",{
+                    ...user,
+                    updated_at: admin.firestore.Timestamp.now(),
+                    created_at: admin.firestore.Timestamp.now(),
+                });
+    
+                if (response.status < 300 && response.data) {
+                    result = response.data.id;
+                }
+            } else {
+                t = text;
+                s = status;
             }
+
             
         } catch (error) {
-            status = 400;
-            text = " 🚨 [ERROR]: User document couldn't be created";
+            s = 400;
+            t = " 🚨 [ERROR]: User document couldn't be created";
             result = "";
             ok = false;
         }
         
-        res.status(status).json({
+        res.status(s).json({
             ok: ok,
-            text: text,
+            text: t,
             result: result
         })
     });

@@ -2,7 +2,7 @@ import * as express from "express";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import {
-    CreateMerchant,
+    CreateMerchant, UserSummary,
 } from "../lib/types/merchants";
 import { validateKey } from "./auth";
 import { createUser } from "../lib/helpers/merchants/createUser";
@@ -10,12 +10,38 @@ import { createUserAndMerchant } from "../lib/helpers/merchants/createAccount";
 import { fetchMerchant } from "../lib/helpers/merchants/fetchMerchants";
 import { updateDocument } from "../lib/helpers/firestore";
 import { getToday } from "../lib/helpers/date";
+import { signInMerchant } from "../lib/helpers/merchants/signInUser";
 
 /**
  * Mercahnt Routes
  * @param app 
  */
 export const merchantRoutes = (app: express.Router) => {
+
+    app.post("/merchants/sign_in", validateKey, async (req: express.Request, res: express.Response) => {
+        functions.logger.debug(' ✅ [MERCHANTS] - Sign In Merchant Account.');
+
+        // Fetch Obj 
+        let {
+            user,
+            merchant_uuid,
+        }: CreateMerchant = req.body;
+
+        console.log(user)
+        console.log(merchant_uuid)
+
+        // 
+        const {status,text,isValid} = await signInMerchant(
+            merchant_uuid as string,
+            user as UserSummary,
+        );
+
+        // Create merchant & own User 
+        res.status(status).json({
+            text: text,
+            data: isValid
+        });
+    });
 
     app.post("/merchants/create",  async (req: express.Request, res: express.Response) => {
         functions.logger.debug(' ✅ [MERCHANTS] - Create Merchant');
@@ -69,26 +95,29 @@ export const merchantRoutes = (app: express.Router) => {
             }
         });
     });
-    
+
     // Fetch products using imPowered API_KEY
     app.post("/merchants/invite/user", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(' ✅ [MERCHANTS] - Create User for Merchant');
+        const today = await getToday();
 
         // Destructure the required data from the request body
         const {
             merchant_uuid, 
-            user,
             token,
-            owner
+            user
         } = req.body;
+
+        console.log(merchant_uuid)
+        console.log(token)
+        console.log(user)
 
         // Create User for Merchant
         let {status,text,result} =  await createUser(
             token,
-            merchant_uuid,user
+            merchant_uuid,
+            user
         );
-
-        const today = await getToday();
 
         try {
             if (status < 300 && result) {
@@ -96,9 +125,9 @@ export const merchantRoutes = (app: express.Router) => {
                 // Update Merchant 
                 await updateDocument(merchant_uuid, "logs", today.toString(), {
                     updated_at: admin.firestore.Timestamp.now(),
-                    account: owner.email ? owner.email : "",
+                    account: user.email ? user.email : "",
                     created_at: admin.firestore.Timestamp.now(),
-                    description: "Merchant invited by " + (owner.first_name ? owner.first_name : "") + "."
+                    description: "Merchant invited by " + (user.first_name ? user.first_name : "") + "."
                 });
             } 
         } catch (error) {
@@ -118,6 +147,7 @@ export const merchantRoutes = (app: express.Router) => {
 
     // Fetch products using imPowered API_KEY
     app.post("/merchants", async (req: express.Request, res: express.Response) => {
+
         // Destructure the required data from the request body
         const { merchant_uuid, merchant_shop } = req.body as {
             merchant_uuid: string;
