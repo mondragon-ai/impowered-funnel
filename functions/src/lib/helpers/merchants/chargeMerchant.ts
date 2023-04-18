@@ -1,8 +1,8 @@
 import { Merchant } from "../../types/merchants";
-import { updateMerchant } from "../firestore";
+import { createChargeDocument, updateMerchant } from "../firestore";
 import { chargeMerchant } from "../stripe";
 import * as admin from "firebase-admin";
-import * as crypto from "crypto";
+import { encryptToken } from "../algorithms";
 
 export const chargeMerchantStripe = async (
     merchant_uuid: string,
@@ -24,14 +24,23 @@ export const chargeMerchantStripe = async (
         status = 200;
         STRIPE_PI_ID = charge_response.STRIPE_PI;
 
+        let pm = charge_response.STRIPE_PI;
+
+        try {
+            pm = encryptToken(pm);
+        } catch (error) {
+            
+        }
+
         const payments = charge_response.merchant?.payment_history ? charge_response.merchant?.payment_history : [];
         const email = charge_response.merchant?.owner ? charge_response.merchant?.owner.email : "";
 
+        const charge_id =  "txt_" + STRIPE_PI_ID;
         await updateMerchant(merchant_uuid, {
             ...charge_response.merchant,
             stripe: {
                 ...charge_response.merchant?.stripe,
-                PM: charge_response.STRIPE_PM,
+                PM: pm,
                 secret: ""
             },
             payment_history: [
@@ -40,11 +49,25 @@ export const chargeMerchantStripe = async (
                     date: admin.firestore.Timestamp.now(),
                     amount: amount,
                     email:  email,
-                    id: "txt_" + crypto.randomBytes(10).toString('hex').substring(0,10)
+                    id: charge_id
                     
                 }
             ]
-        } as Merchant)
+        } as Merchant);
+
+        await createChargeDocument(charge_id, 
+            {
+                date: admin.firestore.Timestamp.now(),
+                updated_at: admin.firestore.Timestamp.now(),
+                created_at: admin.firestore.Timestamp.now(),
+                amount: amount,
+                email:  email,
+                id: charge_id,
+                line_items: [
+                    
+                ]
+                
+            }); 
     } else {
         await updateMerchant(merchant_uuid, {
             ...charge_response.merchant,
