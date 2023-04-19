@@ -64,7 +64,7 @@ export const createUser = async (
             // Get all products if product_uuid is not provided
             const response = await updateDocument(merchant_uuid, "users", user_uuid, {
                 ...user,
-                auth_uuid: user_uuid,
+                id: user_uuid,
                 updated_at: today,
                 created_at: today,
                 api_key: storefront_api

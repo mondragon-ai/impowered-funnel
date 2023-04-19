@@ -486,6 +486,7 @@ export const chargeMerchant = async (
 
   let merchant: Merchant | null = null;
   console.log(merchantId);
+  console.log("[merchantId]", merchantId);
 
   try {
     const response = await getMerchant(merchantId);
@@ -504,8 +505,8 @@ export const chargeMerchant = async (
   let STRIPE_PI = "";
 
   let price = Number(amount) && Number(amount) > 0 ? Number(amount) : 0;
-  console.log(STRIPE_UUID);
-  console.log(STRIPE_PM);
+  console.log("[STRIPE_UUID]", STRIPE_UUID);
+  console.log("[STRIPE_PM]", STRIPE_PM);
 
   if (STRIPE_PM === "") {
     console.log("[STRIPE_PM]: === ''");
@@ -540,6 +541,7 @@ export const chargeMerchant = async (
 
     try {
       STRIPE_PM = decryptToken(STRIPE_PM);
+      console.log("[STRIPE_PM]", STRIPE_PM);
     } catch (error) {
         
     }
@@ -549,6 +551,7 @@ export const chargeMerchant = async (
     return new Promise( (resolve) => {
       return setTimeout(async () => {
 
+        console.log("[STRIPE_PM]", STRIPE_PM);
         console.log(STRIPE_PM)
         try {
       

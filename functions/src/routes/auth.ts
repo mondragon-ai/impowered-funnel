@@ -297,7 +297,7 @@ export const validateKey = async (req: express.Request, res: express.Response, n
     console.log(account);
     console.log(decrypted_merchant);
     try {
-        decrypted_merchant = decryptToken(account?.merchant_uuid as string);
+        decrypted_merchant = account?.merchant_uuid == "50rAgweT9PoQKs5u5o7t"  ? account?.merchant_uuid :  decryptToken(account?.merchant_uuid as string);
     } catch (error) { }
 
     if (account !== null) {
@@ -450,6 +450,15 @@ export const validateAccount = async (
             text = text + " - rate limit hit.";
             VALID = false;
             status = 400;
+        } else {
+            update_session =  {
+                ...update_session,
+                updated_at: admin.firestore.Timestamp.now(),
+                usage: {
+                    count: (update_session.usage?.count as number) + 1,
+                    time:  Math.floor((new Date().getTime()))
+                }
+            };
         }
     } else {
         functions.logger.info("NO LIMIT REACHED: ", session_range);

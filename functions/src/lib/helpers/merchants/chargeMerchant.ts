@@ -24,7 +24,7 @@ export const chargeMerchantStripe = async (
         status = 200;
         STRIPE_PI_ID = charge_response.STRIPE_PI;
 
-        let pm = charge_response.STRIPE_PI;
+        let pm = charge_response.STRIPE_PM;
 
         try {
             pm = encryptToken(pm);
@@ -64,7 +64,7 @@ export const chargeMerchantStripe = async (
                 email:  email,
                 id: charge_id,
                 line_items: [
-                    
+
                 ]
                 
             }); 
