@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import { simlpeSearch } from "../firestore";
 import {
+    User,
     UserSummary
 } from "../../types/merchants";
 
@@ -13,6 +14,7 @@ export const signInMerchant = async (
     let status = 403;
     let isValid = false;
 
+    let api_key = ""
     try {
         if (merchant_uuid !== "" && user) {
             // Get all products if product_uuid is not provided
@@ -20,12 +22,13 @@ export const signInMerchant = async (
             
             // Check if email exists in merchants list of eligible users
             if (response.status < 300 && response.data) {
-                const merchants = response.data.list;
+                const users = response.data.list;
 
-                if (merchants && merchants?.size > 0) {
-                    merchants.forEach(mer => {
-                        if (mer.exists) {
-                            if (mer.data())
+                if (users && users?.size > 0) {
+                    users.forEach(u => {
+                        if (u.exists) {
+                            const new_user = u.data() as User;
+                            api_key = new_user.api_key;
                             isValid = true;
                             text = ' 🎉 [SUCCESS]: User signed into Merchant Account';
                             status = 200;
@@ -42,6 +45,6 @@ export const signInMerchant = async (
         isValid = false;
     }
 
-    return {status, text, isValid}
+    return {status, text, isValid, api_key}
 
 }

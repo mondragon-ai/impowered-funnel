@@ -6,6 +6,7 @@ import {
     Merchant,
     User
 } from "../../types/merchants";
+import { encryptToken } from "../algorithms";
 
 const today = admin.firestore.Timestamp.now();
 
@@ -20,8 +21,9 @@ export const createUser = async (
     let result: Merchant[] = [];
 
     let user_uuid = "use_" + crypto.randomBytes(10).toString("hex");
-    let storefront_api = token && token !== "" ? token : "ipat_" + crypto.randomBytes(10).toString("hex");
     let isValid = false;
+
+    let payload = {} as User
 
 
     try {
@@ -32,13 +34,14 @@ export const createUser = async (
             
             // Check if email exists in merchants list of eligible users
             if (response.status < 300 && response.data) {
-                const merchants = response.data.list;
+                const users = response.data.list;
 
-                if (merchants && merchants?.size > 0) {
-                    merchants.forEach(mer => {
-                        if (mer.exists) {
-                            user_uuid = user_uuid;
-                            isValid = false;
+                if (users && users?.size > 0) {
+                    users.forEach(user => {
+                        if (user.exists) {
+                            user_uuid = user.id;
+                            payload = user.data() as User;
+                            isValid = true;
                             text = ' 🎉 [SUCCESS]: User already exists for Merchant Account';
                             status = 422;
                         } 
@@ -58,16 +61,25 @@ export const createUser = async (
         result = [];
     }
 
+    let encrypted_merchant_id = ""
+
+    try {
+        encrypted_merchant_id = encryptToken(merchant_uuid)
+    } catch (error) {
+        
+    }
     try {
         if (merchant_uuid !== "" && user && isValid) {
-            console.log(merchant_uuid);
+            console.log(payload);
+
             // Get all products if product_uuid is not provided
             const response = await updateDocument(merchant_uuid, "users", user_uuid, {
+                ...payload,
                 ...user,
                 id: user_uuid,
                 updated_at: today,
                 created_at: today,
-                api_key: storefront_api
+                merchant_uuid: encrypted_merchant_id
             } as User);
             
             console.log(response);

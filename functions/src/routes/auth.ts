@@ -281,10 +281,6 @@ export const validateKey = async (req: express.Request, res: express.Response, n
     const api_key = xssFilters.inHTMLData(token);
     const response = await getSessionAccount(api_key);
 
-    console.log(encrypted);
-    console.log(token);
-    console.log(api_key);
-    console.log(response);
     let account: AppSession | null = null
     if (response.status < 300) {
         account = response.data;
@@ -294,8 +290,6 @@ export const validateKey = async (req: express.Request, res: express.Response, n
     }
     let decrypted_merchant = "";
 
-    console.log(account);
-    console.log(decrypted_merchant);
     try {
         decrypted_merchant = account?.merchant_uuid == "50rAgweT9PoQKs5u5o7t"  ? account?.merchant_uuid :  decryptToken(account?.merchant_uuid as string);
     } catch (error) { }

@@ -48,6 +48,9 @@ export type UserSummary = {
 }
 
 export type User = {
+    id: string
+    ip_address?: string,
+    merchant_uuid?: string
     first_name: string,
     last_name: string,
     email: string,

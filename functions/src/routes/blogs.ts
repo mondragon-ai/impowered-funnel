@@ -172,7 +172,7 @@ export const blogRoutes = (app: express.Router) => {
             merchant_uuid: merchant_uuid,
             updated_at: admin.firestore.Timestamp.now(),
             created_at: admin.firestore.Timestamp.now(),
-            status: false,
+            status: false
         } as Blog;
 
         try {
@@ -766,7 +766,8 @@ export const blogRoutes = (app: express.Router) => {
             published_date: new Date().toLocaleDateString(),
             updated_at: admin.firestore.Timestamp.now(),
             created_at: admin.firestore.Timestamp.now(),
-            default_media_url: img
+            default_media_url: img,
+            merchant_uuid: merchant_uuid
         } as Blog;
 
         let generated_sections: {

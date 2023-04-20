@@ -31,7 +31,7 @@ export const merchantRoutes = (app: express.Router) => {
         console.log(merchant_uuid)
 
         // 
-        const {status,text,isValid} = await signInMerchant(
+        const {status,text,isValid,api_key} = await signInMerchant(
             merchant_uuid as string,
             user as UserSummary,
         );
@@ -39,7 +39,8 @@ export const merchantRoutes = (app: express.Router) => {
         // Create merchant & own User 
         res.status(status).json({
             text: text,
-            data: isValid
+            ok: isValid,
+            data: isValid ? api_key : ""
         });
     });
 

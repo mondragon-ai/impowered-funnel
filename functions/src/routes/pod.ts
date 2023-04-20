@@ -1031,7 +1031,7 @@ export const podRoutes = (app: express.Router) => {
             // const response = await shineOnAPIRequests("/renders/13125/make", "POST", {
             //     "src": img_url
             // })
-            const requests = ["/renders/13125/make", "/renders/13125/make", "/renders/13125/make",].map(async (id) => await shineOnAPIRequests(id,  "POST", {
+            const requests = ["/renders/13125/make", "/renders/12951/make", "/renders/13896/make",].map(async (id) => await shineOnAPIRequests(id,  "POST", {
                 "src": img_url
             }));
 
@@ -1049,10 +1049,9 @@ export const podRoutes = (app: express.Router) => {
                         img_list = [
                             ...img_list,
                             response.data.render.make.src ? response.data.render.make.src : img_url
-                        ]
-                        
+                        ];
                     }
-                })
+                });
               })
               .catch(error => {
                 console.error(error);
@@ -1073,7 +1072,10 @@ export const podRoutes = (app: express.Router) => {
         res.status(status).json({
             ok: ok,
             text: text,
-            result: img_url !== "" ? img_url : img_list
+            result: {
+                img_url: img_url !== "" ? img_url : img_list,
+                poem: poem
+            }
          })
     });
 

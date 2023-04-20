@@ -25,10 +25,11 @@ export const sendMerchantSecret = async (
     let STRIPE_UUID = "";
 
     if (merchants[0] && merchants[0].stripe) {
-        secret = merchants[0].stripe.secret;
+        secret = merchants[0].stripe.secret ? merchants[0].stripe.secret : "";
         STRIPE_UUID =  merchants[0].stripe.UUID;
     }
 
+    console.log(STRIPE_UUID);
 
     if (secret === "") {
 
@@ -37,6 +38,7 @@ export const sendMerchantSecret = async (
         if (new_secret.data !== "") {
             secret = new_secret.data;
         }
+        console.log(secret);
 
     }
     return {secret, status}

@@ -20,11 +20,15 @@ export const billingRoutes = (app: express.Router) => {
         let {
             merchant_uuid,
         }: SendSecret = req.body;
+
+        console.log(merchant_uuid)
         
         // Create merchant & own User 
         const {secret, status} = await sendMerchantSecret(
             merchant_uuid,
         );
+
+        console.log(secret);
 
         // Create merchant & own User 
         res.status(status).json({
