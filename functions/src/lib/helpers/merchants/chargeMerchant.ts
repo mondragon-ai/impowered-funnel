@@ -2,14 +2,17 @@ import { Merchant } from "../../types/merchants";
 import { createChargeDocument, updateMerchant } from "../firestore";
 import { chargeMerchant } from "../stripe";
 import * as admin from "firebase-admin";
-import { encryptToken } from "../algorithms";
+import { getToday } from "../date";
+import { encryptMsg } from "../auth/auth";
 
 export const chargeMerchantStripe = async (
     merchant_uuid: string,
-    amount: number
+    amount: number,
+    service: string
 ) => {
     console.log(merchant_uuid);
 
+    const TODAY = await getToday();
     let status = 400;
 
     // Charge the Merchant
@@ -26,11 +29,7 @@ export const chargeMerchantStripe = async (
 
         let pm = charge_response.STRIPE_PM;
 
-        try {
-            pm = encryptToken(pm);
-        } catch (error) {
-            
-        }
+        pm == encryptMsg(pm);
 
         const payments = charge_response.merchant?.payment_history ? charge_response.merchant?.payment_history : [];
         const email = charge_response.merchant?.owner ? charge_response.merchant?.owner.email : "";
@@ -49,25 +48,24 @@ export const chargeMerchantStripe = async (
                     date: admin.firestore.Timestamp.now(),
                     amount: amount,
                     email:  email,
-                    id: charge_id
+                    id: charge_id+"_"+service,
+                    service: service,
+                    time: TODAY
                     
                 }
             ]
         } as Merchant);
 
-        await createChargeDocument(charge_id, 
-            {
-                date: admin.firestore.Timestamp.now(),
-                updated_at: admin.firestore.Timestamp.now(),
-                created_at: admin.firestore.Timestamp.now(),
-                amount: amount,
-                email:  email,
-                id: charge_id,
-                line_items: [
-
-                ]
-                
-            }); 
+        await createChargeDocument(charge_id+"_"+service, 
+        {
+            date: admin.firestore.Timestamp.now(),
+            amount: amount,
+            email:  email,
+            id: charge_id+"_"+service,
+            service: service,
+            time: TODAY,
+            merchant_uuid: merchant_uuid
+        }); 
     } else {
         await updateMerchant(merchant_uuid, {
             ...charge_response.merchant,

@@ -255,6 +255,7 @@ export const createAppSessions = async (
     data: any,
     test_api_key?: string,
     roles?: string[],
+    session_type?: ("PLATFORM" | "STOREFRONT" | "API_KEY" | "MICRO_SERVICE"),
 ) => {
     // Data for validation in parent
     let text = " ✅ [SUCCESS]: Document Created 👍🏻", status = 200;
@@ -273,13 +274,9 @@ export const createAppSessions = async (
             usage: { time: Math.floor((new Date().getTime())), count: 0 },
             dev_api_key: test_api_key ? test_api_key : "",
             production: true,
-            is_charging: true,
+            is_charging: false,
             is_valid: true,
-            billing: {
-                charge_monthly: 1400,
-                charge_rate: 0,
-                time: Math.floor(new Date().getTime())
-            },
+            session_type: session_type ? session_type : "PLATFORM",
             roles: roles && roles?.length > 0 ? roles : ["STOREFRONT"],
             id: api_key
         });
@@ -326,7 +323,6 @@ export const getSessionAccount = async (
         data: result
     }
 }
-
 /**
  * Create docuemtn in primary DB 
  * @param merchant_uuid: string

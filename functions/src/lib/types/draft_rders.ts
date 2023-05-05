@@ -105,3 +105,21 @@ export interface Order {
     'Charge': string,
     'Subscription': string
 }
+
+export interface LineItem {
+    variant_id: number | string,
+    product_id: string,
+    high_risk: boolean,
+    title: string,
+    sku: string,
+    price: number,
+    compare_at_price: number,
+    handle: string,
+    options1: string,
+    options2: string,
+    options3: string,
+    weight: number,
+    quantity: number,
+    is_recurring?: boolean,
+    url?: string
+}

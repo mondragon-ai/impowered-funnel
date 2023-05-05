@@ -44,9 +44,10 @@ export const billingRoutes = (app: express.Router) => {
         let {
             merchant_uuid,
             amount,
+            service
         }: SendSecret = req.body;
 
-        const transaction_id = await chargeMerchantStripe(merchant_uuid,amount);
+        const transaction_id = await chargeMerchantStripe(merchant_uuid,amount,service);
 
         // Create merchant & own User 
         res.status(transaction_id.status).json({

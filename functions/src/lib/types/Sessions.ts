@@ -10,13 +10,17 @@ export type AppSession = {
     owner: UserSummary;
     updated_at: FirebaseFirestore.Timestamp;
     created_at: FirebaseFirestore.Timestamp;
-    roles: ["ALL" | "STOREFRONT"];
+    roles: string[];
     usage: { time: number, count: number};
     billing: {
         charge_rate: number,
         charge_monthly: number,
         time: number,
-    };
+        service_type: "PLATFORM" | "API_KEY" | "MICRO",
+        title: string,
+        id: string,
+    }[];
     is_valid: boolean
     is_charging: boolean
+    service:  string,
 }

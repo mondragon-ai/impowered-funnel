@@ -1,3 +1,5 @@
+import { AppSession } from "./Sessions"
+
 export type CreateMerchant = {
     merchant: Merchant,
     token: string
@@ -11,7 +13,8 @@ export type CreateMerchant = {
 export type SendSecret = {
     merchant_uuid: string,
     token: string,
-    amount: number
+    amount: number,
+    service: string
 }
 
 export type Merchant = {
@@ -37,7 +40,24 @@ export type Merchant = {
         amount: number,
         email: string,
         id: string
-    }[]
+    }[],
+    api_keys: AppSession,
+    billing: {
+        usage: number,
+        amount: number,
+        time: number,
+        name: string
+        title: string,
+        id: string,
+    }[];
+
+}
+
+export type AppMeta = {
+    name: string,
+    id: string,
+    title: string,
+    charge_type: "FIXED" | "USAGE" | "BOTH"
 }
 
 export type UserSummary = {
@@ -48,6 +68,7 @@ export type UserSummary = {
 }
 
 export type User = {
+    isOwner: boolean,
     id: string
     ip_address?: string,
     merchant_uuid?: string
@@ -57,5 +78,13 @@ export type User = {
     created_at: FirebaseFirestore.Timestamp;
     updated_at: FirebaseFirestore.Timestamp;
     api_key: string;
+    roles: string[]
 }
 
+
+export type AppSessionBilling = {
+    charge_monthly: number,
+    charge_rate: number,
+    time:  number
+    service_type: "PLAFORM" | "USER" | "API_KEY" | "MICRO_SERVICE"
+}

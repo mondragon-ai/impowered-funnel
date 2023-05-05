@@ -65,7 +65,7 @@ export const decryptMsg =(text: string): string => {
   const iv = Buffer.from(ivHex, 'hex');
   const encrypted = Buffer.from(encryptedHex, 'hex');
   const decipher = crypto.createDecipheriv(algorithm, key, iv);
-  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
+  let decrypted = decipher.update(encrypted.toString("hex"), 'hex', 'utf8');
+  decrypted += decipher.final('utf8').toString();
   return decrypted;
 }

@@ -11,6 +11,8 @@ import { fetchMerchant } from "../lib/helpers/merchants/fetchMerchants";
 import { updateDocument } from "../lib/helpers/firestore";
 import { getToday } from "../lib/helpers/date";
 import { signInMerchant } from "../lib/helpers/merchants/signInUser";
+// import { fetchApps } from "../lib/helpers/merchants/fetchApps";
+import { subscribeApp } from "../lib/helpers/merchants/apps";
 
 /**
  * Mercahnt Routes
@@ -169,6 +171,58 @@ export const merchantRoutes = (app: express.Router) => {
                 size,
                 api_key: result.length > 0 ? result[0].api_key : ""
             }
+        });
+    });
+
+
+
+    // // Fetch products using imPowered API_KEY
+    // app.post("/merchants/apps", async (req: express.Request, res: express.Response) => {
+
+    //     // Destructure the required data from the request body
+    //     const { merchant_uuid, micro_service } = req.body as {
+    //         merchant_uuid: string;
+    //         micro_service: string;
+    //     };
+    
+    //     // Fetch the merchants based on shop name || uid
+    //     const { status, text, result, size } = await fetchApps(
+    //         micro_service || "",
+    //         merchant_uuid || ""
+    //     );
+    
+    //     // Return the response
+    //     res.status(status).json({
+    //         ok: status < 300,
+    //         text,
+    //         data: {
+    //             size,
+    //             api_key: result.length > 0 ? result[0].api_key : ""
+    //         }
+    //     });
+    // });
+
+
+    // Fetch products using imPowered API_KEY
+    app.post("/merchants/apps/subscribe", async (req: express.Request, res: express.Response) => {
+
+        // Destructure the required data from the request body
+        const { merchant_uuid, micro_service } = req.body as {
+            merchant_uuid: string;
+            micro_service: string;
+        };
+    
+        // Fetch the merchants based on shop name || uid
+        const { status, text, result } = await subscribeApp(
+            micro_service || "",
+            merchant_uuid || ""
+        );
+    
+        // Return the response
+        res.status(status).json({
+            ok: status < 300,
+            text,
+            data: result
         });
     });
 

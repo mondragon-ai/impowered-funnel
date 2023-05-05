@@ -3,8 +3,8 @@ import * as crypto from "crypto";
 import * as admin from "firebase-admin";
 import { Merchant } from "../lib/types/merchants";
 // import { createAlgoDB } from "../routes/db";
-import { createAppSessions, updateDocument, updateMerchant } from "../lib/helpers/firestore";
-import { decryptToken, encryptToken } from "../lib/helpers/algorithms";
+import { updateDocument, updateMerchant } from "../lib/helpers/firestore";
+import { decryptToken } from "../lib/helpers/algorithms";
 import { createStripeCustomer } from "../lib/helpers/stripe";
 import { getToday } from "../lib/helpers/date";
 
@@ -20,18 +20,16 @@ export const merchantCreated = functions.firestore
 
     // Get merchant & Deconstruct
     let merchant: Merchant = snap.exists ? snap.data() as Merchant : {} as Merchant;
-    const { api_key, id, ip_address, owner, stripe } = merchant;
+    const { api_key, id, owner, stripe } = merchant;
 
     // set vars
     let token = "";
-    let merchant_uuid = "";
 
     const merchantId = id ? id : "";
 
     try {
         // use algos for enctrption
         token = decryptToken((api_key ? api_key : "") as string);
-        merchant_uuid = encryptToken(merchantId ? merchantId : "");
     } catch (error) { };
 
     console.log("DECRYPTED_TOKEN: ", token);
@@ -44,17 +42,17 @@ export const merchantCreated = functions.firestore
         const storefront_api = token !== "" ? token : new_ipat;
         console.log("STOREFRONT_API: ", storefront_api);
 
-        // create new session (for owner)
-        await createAppSessions(
-            storefront_api, 
-            {
-                owner: owner,
-                merchant_uuid: merchant_uuid ? merchant_uuid : "",
-                ip_address: ip_address ? ip_address : "",
-            },
-            "", 
-            ["OWNER"]
-        );
+        // // create new session (for owner)
+        // await createAppSessions(
+        //     storefront_api, 
+        //     {
+        //         owner: owner,
+        //         merchant_uuid: merchant_uuid ? merchant_uuid : "",
+        //         ip_address: ip_address ? ip_address : "",
+        //     },
+        //     "", 
+        //     ["OWNER"]
+        // );
 
         // Stripe Charge
         // await createMerchantAccount(merchantId, owner.email as string);
@@ -80,7 +78,15 @@ export const merchantCreated = functions.firestore
                     ...stripe,
                     secret: stripe_response.data.stripe_client_secret ? stripe_response.data.stripe_client_secret : "",
                     UUID: stripe_response.data.stripe_uuid ? stripe_response.data.stripe_uuid : "",
-                }
+                },
+                billing: [{
+                    amount: 1400,
+                    usage: 0,
+                    time:  Math.floor((new Date().getTime())),
+                    name: "PLATFORM",
+                    title: "Base Platform Services",
+                    id: "bil_"+crypto.randomBytes(10).toString('hex')
+                }]
             } as Merchant);
 
 

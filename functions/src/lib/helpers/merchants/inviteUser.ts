@@ -44,7 +44,8 @@ export const inviteUser = async (
                         host: ip_address ? ip_address : "",
                     },
                     "", 
-                    ["STORE_GUEST"]
+                    ["STORE_GUEST"],
+                    "PLATFORM"
                 );
             };
 

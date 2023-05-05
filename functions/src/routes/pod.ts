@@ -965,7 +965,7 @@ export const podRoutes = (app: express.Router) => {
     
                 const array_buffer = await response.arrayBuffer();
 
-                const buffer = Buffer.from(array_buffer, "utf8");
+                const buffer = Buffer.from(array_buffer);
 
                 functions.logger.debug(" 🖼️ [IMAGE] - Fetched ");
     
@@ -1184,7 +1184,7 @@ export const podRoutes = (app: express.Router) => {
     
                 const array_buffer = await response.arrayBuffer();
 
-                const buffer = Buffer.from(array_buffer, "utf8");
+                const buffer = Buffer.from(array_buffer);
 
                 functions.logger.debug(" 🖼️ [IMAGE] - Fetched ");
     

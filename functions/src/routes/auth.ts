@@ -1,12 +1,26 @@
 import * as express from "express";
 import * as xssFilters from "xss-filters";
 import * as admin from "firebase-admin";
+import * as crypto from "crypto";
 import * as functions from "firebase-functions";
 import { generateAPIKey } from "../lib/helpers/auth/auth";
-import { createAppSessions, getSessionAccount, updateSessions } from "../lib/helpers/firestore";
+import { createAppSessions, getMerchant, getSessionAccount, updateMerchant, updateSessions } from "../lib/helpers/firestore";
 import { AppSession } from "../lib/types/Sessions";
 import { decryptToken } from "../lib/helpers/algorithms";
 import { chargeMerchantStripe } from "../lib/helpers/merchants/chargeMerchant";
+
+
+import { createClient } from 'redis';
+import { Merchant } from "../lib/types/merchants";
+
+// 
+const client = createClient({
+    password: 'd2CXNfzCFNuZpK2EN1n8fZRAJPBy7vzU',
+    socket: {
+        host: 'redis-17602.c279.us-central1-1.gce.cloud.redislabs.com',
+        port: 17602
+    }
+});
 
 export const authRoutes = (app: express.Router) => {
 
@@ -15,6 +29,8 @@ export const authRoutes = (app: express.Router) => {
         let text = "ERROR: Likely internal prolem 🔥", status= 500, result: AppSession | any = null;
 
         const merchant_uuid = req.body.merchant_uuid || "50rAgweT9PoQKs5u5o7t";
+        const roles = req.body.roles || ["STORE_FRONT"];
+        const session_type = req.body.session_type || "PLATFORM"
 
         const API_KEY = generateAPIKey();
 
@@ -30,16 +46,20 @@ export const authRoutes = (app: express.Router) => {
             production: false,
             is_charging: true,
             is_valid: true,
-            billing: {
+            billing: [{
                 charge_monthly: 1400,
                 charge_rate: 0,
-                time: Math.floor(new Date().getTime())
-            },
-            roles: ["STOREFRONT"]
+                time:  Math.floor((new Date().getTime())),
+                service_type: "PLATFORM",
+                title: "Base Platform Services",
+                id: "bil_"+crypto.randomBytes(10).toString('hex')
+            }],
+            roles: roles ? roles : ["STOREFRONT"],
+            session_type: session_type ? session_type : "PLATFROM",
         } as AppSession;
 
         try {
-            const response = await createAppSessions(API_KEY as string, sessions);
+            const response = await createAppSessions(API_KEY as string, sessions,"",["STORE_FRONT"],"PLATFORM");
 
             if (response.status < 300) {
                 status = 200
@@ -273,12 +293,80 @@ const getToken = (encrypted: string): string => {
     }
 };
 
+
+
+export const getSessionAccounRedis = async (
+    merchant_uid: string,
+) => {
+
+    let text = "🚨 [ERROR]: Likely oAuth problem problems.";
+
+    client.on('error', err => console.log('Redis Client Error', err));
+    
+    await client.connect();
+    
+
+                    
+    await client.set("mer_4cc661b2c2a3b66a7388", "");
+    const value = await client.get("mer_4cc661b2c2a3b66a7388");
+    await client.disconnect();
+    // return either result 
+    return {
+        text:  value ? " 🎉 [SUCESS] Posted & Fetched" : text,
+        status:  value ? 200 : 404,
+        data: value
+    }
+}
+
+export const getMerchantRedis = async (
+    merchant_uid: string,
+) => {
+
+    let text = "🚨 [ERROR]: Likely oAuth problem problems.";
+
+    client.on('error', err => console.log('Redis Client Error', err));
+    
+    await client.connect();
+    const value = await client.get(merchant_uid);
+    if (value !== null && value !== "") {
+        const data  = await JSON.parse(value);
+        await client.disconnect();
+
+        return {
+            text:  value ? " 🎉 [SUCESS] Redis Merchant Fethed"  : text,
+            status:  value ? 200 : 404,
+            data: data as Merchant
+        }
+    } else {
+
+        const response = await getMerchant(merchant_uid);
+
+        if (response.status >= 300 && !response.data) {
+            throw new Error(text + "Merchant doesn't exist");
+            
+        }
+        await client.set(merchant_uid, JSON.stringify(response.data));
+        // return either result 
+        return {
+            text:  response.status < 300 ? " 🎉 [SUCESS] Merchant Fetched & Redis Merchant Created" : text,
+            status:  response.status < 300 ? 200 : 404,
+            data: response.data as Merchant
+        }
+
+    }
+}
+
+
+
 export const validateKey = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     let text = "🚨 [ERROR]: Likely oAuth problem problems.";
     let status = 401;
     const encrypted = req.header('impowered-api-key') as string;
     const token = getToken(encrypted);
     const api_key = xssFilters.inHTMLData(token);
+    console.log(api_key)
+    // const resp = await getSessionAccounRedis("")
+    // console.log(resp)
     const response = await getSessionAccount(api_key);
 
     let account: AppSession | null = null
@@ -288,14 +376,16 @@ export const validateKey = async (req: express.Request, res: express.Response, n
         text = text + response.text;
         status = response.status;
     }
+    console.log(response)
     let decrypted_merchant = "";
 
     try {
         decrypted_merchant = account?.merchant_uuid == "50rAgweT9PoQKs5u5o7t"  ? account?.merchant_uuid :  decryptToken(account?.merchant_uuid as string);
     } catch (error) { }
+    console.log(decrypted_merchant)
 
     if (account !== null) {
-        const {isValid, update_session} = await validateAccount(account, account, api_key, text, status);
+        const {isValid, update_session} = await validateAccount(account, account, api_key, text, status, account.session_type);
 
         if (isValid && !account.is_charging) {
             text = "🎉 [SUCCESS]: Session validated 🔑. ";
@@ -309,7 +399,8 @@ export const validateKey = async (req: express.Request, res: express.Response, n
                 merchant_uuid: decrypted_merchant,
                 token: encrypted,
                 roles: account.roles,
-                owner: account.owner
+                owner: account.owner,
+                billing: update_session.billing
             };
             functions.logger.info(text);
             return next();
@@ -332,7 +423,8 @@ export const validateAccount = async (
     update_session: AppSession,
     api_key: string,
     text: string,
-    status: number
+    status: number,
+    session_type: string
 ): Promise<{isValid: boolean, update_session: AppSession}> => {
     let VALID = true;
 
@@ -350,63 +442,134 @@ export const validateAccount = async (
         status = 400;
     }
 
-    // Last Charge Date + 30 Days
-    const billing_range = (account.billing.time) + (1000 * 60 * 60 * 24 * 30);
+    // Make Sure keys match
+    if (api_key !==  account.api_key) {
+        functions.logger.warn(" ❶ wrong key / host match");
+        VALID = false
+        text = text + `${text} - host & key do not match`
+        status = 400;
+    };
 
-    // Validate Merchant Account has Paid
-    if (Math.floor((new Date().getTime())) >= billing_range) {
-        VALID = false;
-        text = text + " - Billing Is not Valid"
-        functions.logger.warn(text);
+    const merchant_res = await getMerchantRedis(decrypted_merchant);
 
-        updateSessions(api_key,{
-            ...update_session,
-            is_charging: true,
-            updated_at: admin.firestore.Timestamp.now(),
-            usage: {
-                count: (update_session.usage?.count as number) + 1,
-                time: update_session.usage?.time
-            }
-        });
-
-        // If not charging Charge
-        if (!account.is_charging) {
-            const response = await chargeMerchantStripe(
-                decrypted_merchant,
-                (account.billing.charge_rate + account.billing.charge_monthly)
-            );
-
-
-            // If Successfull prep session and continue session
-            if (response.STRIPE_PI_ID !== "") {
-                update_session =  {
-                    ...update_session,
-                    is_charging: false,
-                    is_valid: true,
-                    updated_at: admin.firestore.Timestamp.now(),
-                    billing: {
-                        charge_monthly: 1400,
-                        charge_rate: 0,
-                        time:  Math.floor((new Date().getTime()))
-                    }
-                };
-            } else {
-                // If error update session immedietly to be in-valid
-                VALID = false
-                updateSessions(api_key,{
-                    ...update_session,
-                    is_charging: false,
-                    is_valid: false,
-                    updated_at: admin.firestore.Timestamp.now(),
-                });
-                text = text + `${text} - Merchant Needs To Pay`
-                status = 405;
-                functions.logger.warn(text);
-            }
-        }
-    } else {
-        console.log("[BILLING] Date in seconds: ", billing_range, ".")
+    if (merchant_res.status >= 300 && merchant_res.data) {
+        throw new Error(text);
     }
+
+    const merchant = merchant_res.data as Merchant;
+
+    console.log("MERCHANT")
+    console.log(merchant)
+
+    const billings = merchant && merchant.billing.length >= 0 ? merchant.billing :  merchant.billing ?  [(merchant.billing as any)] : []
+
+    update_session = {
+        ...update_session,
+        billing: billings,
+        updated_at: admin.firestore.Timestamp.now()
+    }
+    
+    const processBilling = async (billing: {
+        amount: number;
+        time: number;
+        service_type: "API_KEY" | "PLATFORM" | "MICRO";
+        title: string;
+        id: string;
+        name: string;
+    }): Promise<void> => {
+
+        const billing_range = (billing.time) + (1000 * 60 * 60 * 24 * 30);
+
+        // Validate Merchant Account has Paid
+        if (Math.floor((new Date().getTime())) >= billing_range) {
+            VALID = false;
+            functions.logger.warn(text + "  " + (Math.floor((new Date().getTime())) >= billing_range));
+            functions.logger.warn(Math.floor((new Date().getTime()))  + "   " + billing.time);
+            functions.logger.warn(new Date().toLocaleString() + " " + new Date(billing_range).toLocaleString());
+            functions.logger.warn(new Date().getTime())
+            functions.logger.warn(billing);
+
+            updateSessions(api_key,{
+                ...update_session,
+                is_charging: true,
+                updated_at: admin.firestore.Timestamp.now(),
+                usage: {
+                    count: (update_session.usage?.count as number) + 1,
+                    time: update_session.usage?.time
+                }
+            });
+
+            // If not charging Charge
+            if (!account.is_charging) {
+                const response = await chargeMerchantStripe(
+                    decrypted_merchant,
+                    (billing.amount),
+                    session_type
+                );
+
+                // If Successfull prep session and continue session
+                if (response.STRIPE_PI_ID !== "") {
+                    update_session =  {
+                        ...update_session,
+                        is_charging: false,
+                        is_valid: true,
+                        updated_at: admin.firestore.Timestamp.now(),
+                    };
+
+                    await client.connect();
+
+                    const new_biling = billings[0] ? billings.map(bil => {
+                        if (bil.name == "PLATFORM") {
+                            return bil = {
+                                amount: 1400,
+                                name: "PLATFORM",
+                                time:  Math.floor((new Date().getTime())),
+                                service_type: "PLATFORM",
+                                title: "Base Platform Services",
+                                id: "bil_"+crypto.randomBytes(10).toString('hex')
+                            }
+                        } else {
+                            return bil;
+                        }
+                    }) : []
+
+                    
+                    await client.set(decrypted_merchant, JSON.stringify({
+                        ...merchant,
+                        billing: new_biling
+                    }));
+
+                    await updateMerchant(decrypted_merchant, {
+                        ...merchant,
+                        billing: new_biling
+                    });
+
+                    await client.disconnect();
+                } else {
+                    // If error update session immedietly to be in-valid
+                    VALID = false
+                    updateSessions(api_key,{
+                        ...update_session,
+                        is_charging: false,
+                        is_valid: false,
+                        updated_at: admin.firestore.Timestamp.now(),
+                    });
+                    text = text + `${text} - Merchant Needs To Pay`
+                    status = 405;
+                    functions.logger.warn(text);
+                }
+            }
+        } else {
+            console.log("[BILLING] Next Billing Date (in seconds): ", billing_range, ".")
+        }
+    };
+  
+    billings[0] && await Promise.all(billings.map((bil: any) => processBilling(bil)));
+
+    // Last Charge Date + 30 Days
+    // const billing_range = (account.billing.time) + (1000 * 60 * 60 * 24 * 30);
+
+    
 
     // Validate Host w/ Key ? LOCALHOST || {{ host }} 
     // if (host === "localhost" && !account.api_key.includes("test_")) {
@@ -423,15 +586,6 @@ export const validateAccount = async (
     //         status = 400;
     //     } 
     // }
-
-    // Make Sure keys match
-    if (api_key !==  account.api_key) {
-        functions.logger.warn(" ❶ wrong key / host match");
-        VALID = false
-        text = text + `${text} - host & key do not match`
-        status = 400;
-    };
-
     // If error update session immedietly to be in-valid
     const session_range = (account.usage.time) + 5000;
 
@@ -464,7 +618,6 @@ export const validateAccount = async (
                 time:  Math.floor((new Date().getTime()))
             }
         };
-        VALID = true;
         status = 200;
     };
     if (!VALID) {

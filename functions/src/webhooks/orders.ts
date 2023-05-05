@@ -103,7 +103,7 @@ export const orderCreated = functions.firestore
 
     } catch (e) {
         
-    }
+    };
 
     try {
 

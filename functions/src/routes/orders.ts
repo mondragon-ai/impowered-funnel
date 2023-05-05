@@ -247,8 +247,6 @@ export const orderRoutes = (app: express.Router) => {
         })
     });
 
-    
-
     /**
      * Search & return users: 
      */

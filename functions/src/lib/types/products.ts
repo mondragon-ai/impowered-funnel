@@ -1,8 +1,7 @@
 import { Address } from "./addresses";
-
 export type Product = {
     merchant_uuid: string,
-    high_risk: boolean
+    high_risk: boolean,
     title: string;
     handle: string;
     price: number;
@@ -15,36 +14,74 @@ export type Product = {
     is_digital?: boolean;
     sell_overstock?: boolean;
     requires_shipping?: boolean;
-    tags: string[],
+    tags: string[];
     image?: {
-        src: string
-    }
-    collections: string[],
-    option1?: string,
-    option2?: string,
-    option3?: string,
+      src: string;
+    };
+    collections: string[];
+    option1?: string;
+    option2?: string;
+    option3?: string;
     options: {
-        options1: string[],
-        options2: string[],
-        options3: string[]
-    },
+      options1: string[];
+      options2: string[];
+      options3: string[];
+    };
     videos: {
-        id: string,
-        url: string,
-        type: "YOUTUBE" | "VIMEO"
-    }[],
+      id: string;
+      url: string;
+      type: "YOUTUBE" | "VIMEO";
+    }[];
     images: {
-        id: string,
-        url: string,
-        alt: string
-    }[],
-    variants?: Variant[],
-    sku?: string,
-    external_id: string | number,
-    external_type: string,
+      id: string;
+      url: string;
+      alt: string;
+    }[];
+    variants?: Variant[];
+    sku?: string;
+    external_id: string | number;
+    external_type: string;
     updated_at: FirebaseFirestore.Timestamp;
     created_at: FirebaseFirestore.Timestamp;
+    barcode: string;
+    inventory_policy: string;
+    inventory_quantity: string;
+    fulfillment_service: string;
+    taxable: string;
+    visibility: "GLOBAL" | "ONLINE" | "PRIVATE" | "INVISIBLE";
+    sku_prefix: string;
+    vendor: string;
+};
+  
+export interface Variant {
+    product_id?: string;
+    variant_id?: string;
+    sku?: string;
+    compare_at?: number;
+    price?: number;
+    option1?: string;
+    option2?: string;
+    option3?: string;
+    quantity?: number;
+    high_risk: boolean;
+    title: string;
+    weight: number;
+    compare_at_price: number;
+    status?: boolean;
+    image_url?: string;
+    inventory?: number;
+    external_id: string | number;
+    external_type: string;
+    updated_at: FirebaseFirestore.Timestamp;
+    created_at: FirebaseFirestore.Timestamp;
+    barcode: string;
+    inventory_policy: string;
+    inventory_quantity: string;
+    fulfillment_service: string;
+    requires_shipping: string;
+    taxable: string;
 }
+  
 
 export type ShopifyProduct = {
     high_risk: boolean
@@ -118,31 +155,6 @@ export type ShopifyProduct = {
     updated_at: FirebaseFirestore.Timestamp;
     created_at: FirebaseFirestore.Timestamp;
 }
-
-
-export interface Variant 
-  {
-    product_id?: string,
-    variant_id?: string,
-    sku?: string,
-    compare_at?: number,
-    price?: number,
-    options1?: string,
-    options2?: string,
-    options3?: string,
-    quantity?: number,
-    high_risk: boolean,
-    title: string,
-    weight: number,
-    compare_at_price: number,
-    status?: boolean,
-    image_url?: string,
-    inventory?: number,
-    external_id: string | number,
-    external_type: string,
-    updated_at: FirebaseFirestore.Timestamp;
-    created_at: FirebaseFirestore.Timestamp;
-  }
 
 export type Collection = {
     id: string,

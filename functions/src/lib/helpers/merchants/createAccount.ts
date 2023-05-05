@@ -20,14 +20,14 @@ export const createUserAndMerchant = async (
 
     let status = 500,text = "",result: any = null;
     const ipAddress = ip.address();
-    const user_uuid = "use_" + (user.id || "");
+    const user_uuid = "use_" + crypto.randomBytes(10).toString("hex");
 
     // Merchant ID: Encrypted & Decrypted
     let merchant_uuid = "mer_" + crypto.randomBytes(10).toString("hex");
     let merchant_uuid_enc = "mer_";
 
     // API Key 
-    let storefront_api = token && token !== "" ? token : "ipat_" + crypto.randomBytes(10).toString('hex');
+    let storefront_api = "ipat_" + crypto.randomBytes(10).toString('hex');
     console.log(merchant_uuid);
     console.log(storefront_api);
 
@@ -72,10 +72,12 @@ export const createUserAndMerchant = async (
     try {
         const user_data = {
             ...user,
-            auth_uuid: user_uuid,
+            id: user_uuid,
             updated_at: today,
             created_at: today,
-            api_key: storefront_api
+            merchant_uuid: merchant_uuid_enc,
+            api_key: storefront_api,
+            isOwner: true,
         } as User;
 
         result = {
