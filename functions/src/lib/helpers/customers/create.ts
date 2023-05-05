@@ -139,13 +139,6 @@ export const createCustomerPayment = async (
                 // }
             }
 
-
-
-
-
-
-
-
             functions.logger.debug(" ❷ [HIGH_RISK] -  Creating Sqaure && Returning UUID");
             console.log(customers);
             // console.log(cus_uuid);
