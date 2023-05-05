@@ -83,7 +83,7 @@ export const productRoutes = (app: express.Router) => {
                     external_type: "SHOPIFY",
                     updated_at: admin.firestore.Timestamp.now(),
                     created_at: admin.firestore.Timestamp.now(),
-                })
+                } as any)
             })
 
             product = {

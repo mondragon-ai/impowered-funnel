@@ -27,7 +27,6 @@ export const bundleRoutes = (app: express.Router) => {
             created_at: admin?.firestore?.Timestamp?.now(),
         } 
 
-
         // Create collection document 
         try {
             const response = await createDocument(merchant_uuid, "bundles", "bun_", bundle);

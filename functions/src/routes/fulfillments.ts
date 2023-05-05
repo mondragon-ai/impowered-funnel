@@ -139,7 +139,6 @@ export const fulfillmentRoutes = (app: express.Router) => {
         })
     });
 
-
     app.post("/fulfillments/print", validateKey, async (req: express.Request, res: express.Response) => {
         functions.logger.debug(" ✅ [FULLFILLMENT_ROUTE] Started & ready to be printed 🖨️ ");
         let status = 200,
@@ -182,8 +181,6 @@ export const fulfillmentRoutes = (app: express.Router) => {
             }
         })
     });
-
-    
 
     /**
      * Search & return users: 
